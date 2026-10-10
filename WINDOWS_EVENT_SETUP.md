@@ -1,6 +1,6 @@
 # Interactive Surface — установка на Windows и управление с телефона при закрытой крышке
 
-**Актуальная тестовая версия:** ветка `fix/recognition-ui-goal-persistence` (0.4.1). Именно в ней находятся калибровка, распознавание и игра с шариками. **Не скачивай `main`: там пока нет всей функциональности.**
+**Актуальная версия 0.4.1 находится в `main`.** Калибровка, распознавание, шарики, веб-пульт и Windows-подготовка доступны после обычного клонирования репозитория — ветку указывать не нужно.
 
 Цель: установить приложение на Windows-ноутбук, подключить USB-камеру и проектор, связать телефон с локальным веб-пультом, закрыть крышку ноутбука и продолжить настройку и игру с телефона.
 
@@ -30,7 +30,7 @@ py -3.12 --version
 
 ```cmd
 cd /d "%USERPROFILE%"
-git clone -b fix/recognition-ui-goal-persistence --single-branch https://github.com/Baryshnikovae/interactive-surface.git
+git clone https://github.com/Baryshnikovae/interactive-surface.git
 cd interactive-surface
 start.bat
 ```
