@@ -54,6 +54,7 @@ class Controller:
                 self.game.stop()
                 self.verified = False
                 self.recognition.invalidate()
+            self._restore_if_compatible()
             return result
 
     def open_projector(self, screen):
@@ -63,7 +64,45 @@ class Controller:
             if previous != screen:
                 self.game.stop()
                 self.verified = False
+            self._restore_if_compatible()
             return data
+
+    def _restore_if_compatible(self) -> bool:
+        """Restore only profiles from exactly the same camera, resolution and screen."""
+        data = self.saved
+        if not data or self.verified:
+            return False
+        cam, pro = self.camera.status(), self.projector.status()
+        if not cam["ready"] or not pro["active"]:
+            return False
+        if data.get("camera_id") != cam["selected"] or data.get("camera_resolution") != cam["resolution"] or data.get("screen_id") != pro["screen"]:
+            return False
+        try:
+            calibration = Calibration(data["camera_quad"], data["projector_quad"],
+                                      tuple(cam["resolution"]), tuple(self.calculate().projector_resolution))
+            if data.get("projector_resolution") != list(calibration.projector_resolution):
+                return False
+            self.camera_quad = quad(data["camera_quad"]).tolist()
+            self.projector_quad = quad(data["projector_quad"]).tolist()
+        except (ValueError, KeyError, TypeError):
+            return False
+        self.projector.set_quad(self.projector_quad)
+        self.projector.set_background(data.get("recognition", {}).get("background", "black"))
+        self.recognition.restore(data.get("recognition", {}))
+        self.projector.set_mode("ready")
+        self.verified = True
+        return True
+
+    def _save_recognition(self) -> None:
+        data = self.store.read()
+        if data:
+            data["recognition"] = {
+                "background": self.recognition.background,
+                "settings": self.recognition.settings.to_dict() if self.recognition.settings else None,
+                "profiles": {name: colour.to_dict() for name, colour in self.recognition.profiles.items()},
+            }
+            self.store.write(data)
+            self.saved = self.store.read()
 
     def update_points(self, which: str, points: list) -> dict:
         validated = quad(points).tolist()
@@ -123,8 +162,9 @@ class Controller:
                 "matrices":calibration.info(),
                 "simulation": camera["simulation"] or projector["virtual"],
             }
-            if self.recognition.settings and self.saved.get("recognition"):
+            if self.saved.get("recognition") and self.saved.get("camera_id")==camera["selected"] and self.saved.get("camera_resolution")==camera["resolution"] and self.saved.get("camera_quad")==self.camera_quad and self.saved.get("projector_quad")==self.projector_quad:
                 payload["recognition"] = self.saved["recognition"]
+                self.recognition.restore(payload["recognition"])
             payload["game"] = self.game.state()["settings"]
             self.store.write(payload)
             self.saved=self.store.read()
@@ -149,10 +189,10 @@ class Controller:
             if list(cal.projector_resolution)!=data.get("projector_resolution"):
                 raise ValueError("Разрешение проектора изменилось; нужна повторная калибровка")
             self.projector.set_quad(self.projector_quad)
-            self.projector.set_mode("verify")
+            self.projector.set_mode("ready")
             self.game.stop()
-            self.recognition.invalidate()
-            self.verified=False
+            self.recognition.restore(data.get("recognition", {}))
+            self.verified=True
             return self.state()
 
     def reset(self):
@@ -176,6 +216,7 @@ class Controller:
             self.recognition.change_background(background)
             self.projector.set_background(background)
             self.projector.set_mode("background")
+            self._save_recognition()
             return self.recognition.state()
 
     def freeze_recognition(self):
@@ -184,11 +225,13 @@ class Controller:
                 raise ValueError("Сначала завершите калибровку")
             return self.recognition.freeze()
 
-    def teach_recognition(self, points: list[list[float]]):
+    def teach_recognition(self, points=None, regions=None, negative_regions=None):
         with self.lock:
             if not self.verified:
                 raise ValueError("Сначала завершите калибровку")
-            return self.recognition.learn(points)
+            result = self.recognition.learn(points, regions=regions, negative_regions=negative_regions)
+            self._save_recognition()
+            return result
 
     def finish_recognition(self):
         with self.lock:
