@@ -80,6 +80,10 @@ class CameraService:
         self.resolution = (1280, 720)
         self.simulation = False
         self.frame = None
+        self.frame_seq = 0
+        self.frame_time = 0.0
+        self.jpeg_cache = None
+        self.jpeg_seq = -1
         self.error = "Камера не выбрана"
         self.running = True
         self.worker = threading.Thread(target=self._capture_loop, daemon=True)
@@ -104,6 +108,10 @@ class CameraService:
             self.selected = device_id
             self.resolution = width, height
             self.frame = synthetic_frame() if self.simulation else None
+            self.frame_seq += 1
+            self.frame_time = time.monotonic()
+            self.jpeg_cache = None
+            self.jpeg_seq = -1
             if not self.simulation:
                 arg = int(device_id) if device_id.isdigit() else device_id
                 backend = cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_V4L2 if sys.platform.startswith("linux") else cv2.CAP_ANY
@@ -121,24 +129,39 @@ class CameraService:
 
     def _capture_loop(self) -> None:
         while self.running:
+            started = time.monotonic()
             with self.lock:
                 if self.simulation:
-                    self.frame = synthetic_frame()
+                    if self.frame is None:
+                        self.frame = synthetic_frame()
+                    self.frame_seq += 1
+                    self.frame_time = time.monotonic()
                 elif self.capture is not None:
                     ok, frame = self.capture.read()
                     if ok and frame is not None:
                         self.frame = frame
+                        self.frame_seq += 1
+                        self.frame_time = time.monotonic()
                         self.error = ""
                     else:
                         self.error = "Нет кадров. Проверьте подключение камеры"
-            time.sleep(1 / 15)
+            time.sleep(max(.002, 1 / 30 - (time.monotonic() - started)))
+
+    def get_latest(self):
+        with self.lock:
+            return (self.frame, self.frame_seq, self.frame_time)
 
     def jpeg(self) -> bytes | None:
         with self.lock:
             if self.frame is None:
                 return None
-            success, buffer = cv2.imencode(".jpg", self.frame, [cv2.IMWRITE_JPEG_QUALITY, 76])
-            return buffer.tobytes() if success else None
+            if self.jpeg_seq != self.frame_seq:
+                success, buffer = cv2.imencode(".jpg", self.frame, [cv2.IMWRITE_JPEG_QUALITY, 76])
+                if not success:
+                    return None
+                self.jpeg_cache = buffer.tobytes()
+                self.jpeg_seq = self.frame_seq
+            return self.jpeg_cache
 
     def status(self) -> dict:
         with self.lock:
