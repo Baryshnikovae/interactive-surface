@@ -175,7 +175,7 @@ class HoleRound:
         base_x, base_y = self.base_goal_x, self.base_goal_y
         lo, hi = next((lo, hi) for lo, hi in GOAL_SIDES if lo <= base_x <= hi)
         amplitude_x = min(75., base_x-lo, hi-base_x)
-        amplitude_y = min(95., base_y-540., 890.-base_y)
+        amplitude_y = min(80., base_y-540., 890.-base_y)
         self.goal_x = base_x + amplitude_x * math.sin(self._goal_phase)
         self.goal_y = base_y + amplitude_y * math.sin(self._goal_phase*1.3 + .8)
 
