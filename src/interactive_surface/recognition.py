@@ -122,22 +122,50 @@ def detect(frame: np.ndarray, settings: ColourSettings, camera_quad: list, *, ma
         ux, uy = .5 * length * math.cos(rad), .5 * length * math.sin(rad)
         a = [(cx-ux)/w, (cy-uy)/h]
         b = [(cx+ux)/w, (cy+uy)/h]
-        results.append({"a": a, "b": b, "area": float(area) / (w*h),
-                        "center": [cx/w, cy/h]})
+        # Fit a rectangle to visible colour pixels; admission remains colour-based.
+        # History will restore this full footprint when a hand masks the surface.
+        half_minor = .5 * min(rw, rh)
+        nx, ny = -math.sin(rad)*half_minor, math.cos(rad)*half_minor
+        corners = [[(cx-ux+nx)/w, (cy-uy+ny)/h],
+                   [(cx+ux+nx)/w, (cy+uy+ny)/h],
+                   [(cx+ux-nx)/w, (cy+uy-ny)/h],
+                   [(cx-ux-nx)/w, (cy-uy-ny)/h]]
+        results.append({"a": a, "b": b, "corners": corners,
+                        "area": float(area) / (w*h), "center": [cx/w, cy/h]})
     results.sort(key=lambda d: d["area"], reverse=True)
     return results[:32], mask, scale
 
 
+def rectangular_corners(a, b, half_width: float) -> list[list[float]]:
+    """Four corners of the complete rectangular wall-space game collider."""
+    p, q = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    axis = q-p
+    length = float(np.linalg.norm(axis))
+    if length < 1e-8 or not np.isfinite(length):
+        raise ValueError("Cannot reconstruct strip axis")
+    normal = np.array([-axis[1], axis[0]]) * (max(0., half_width)/length)
+    return [point.tolist() for point in (p+normal, q+normal, q-normal, p-normal)]
+
+
 def project_observations(observations: list[dict], camera_to_wall: np.ndarray) -> list[dict]:
-    if not observations:
-        return []
-    points = np.array([p for observation in observations for p in (observation["a"], observation["b"])], dtype=np.float64)
-    projected = transform(camera_to_wall, points)
+    """Represent visible contours as full rectangular colliders in wall-space."""
     output = []
-    for i, observation in enumerate(observations):
-        a, b = projected[2*i:2*i+2]
-        if np.isfinite([*a, *b]).all():
-            output.append({"a": a.tolist(), "b": b.tolist(), "area": observation["area"]})
+    for observation in observations:
+        source = [observation["a"], observation["b"]]
+        corners = observation.get("corners")
+        if corners is not None:
+            source += corners
+        transformed = transform(camera_to_wall, source)
+        if not np.isfinite(transformed).all():
+            continue
+        a, b = transformed[:2]
+        item = {"a": a.tolist(), "b": b.tolist(), "area": observation["area"]}
+        if corners is not None:
+            c = transformed[2:]
+            width = (np.linalg.norm(c[0]-c[3])+np.linalg.norm(c[1]-c[2]))*.5
+            item["half_width"] = max(0., float(width)*.5)
+            item["corners"] = rectangular_corners(a, b, item["half_width"])
+        output.append(item)
     return output
 
 
@@ -177,8 +205,14 @@ class StableTracker:
             used_ids.add(tid)
             unmatched.remove(j)
             t = self.tracks[tid]
-            # A hand often truncates a strip. Hold its geometry until enough of it is visible.
-            occluded = length_ratio < .70
+            # A hand may truncate the observed rectangle in length or width.
+            # Preserve the previous full-size collider while visibility is uncertain.
+            new_half_width = observation.get("half_width")
+            old_half_width = t.get("half_width")
+            width_ratio = 1.0
+            if new_half_width is not None and old_half_width is not None:
+                width_ratio = min(new_half_width, old_half_width) / max(new_half_width, old_half_width, 1e-7)
+            occluded = length_ratio < .93 or width_ratio < .78
             if not occluded:
                 old = np.array([t["a"], t["b"]], dtype=float)
                 error = float(np.linalg.norm(q-old, axis=1).max())
@@ -190,6 +224,9 @@ class StableTracker:
                     t["moving"] = moving
                 else:
                     t["moving"] = False
+                if new_half_width is not None:
+                    t["half_width"] = (0.85*old_half_width + 0.15*new_half_width
+                                       if old_half_width is not None else new_half_width)
             t["seen"] = timestamp
             t["occluded"] = occluded
         for j in sorted(unmatched):
@@ -212,6 +249,7 @@ class StableTracker:
             tid = self.next_id
             self.next_id += 1
             self.tracks[tid] = {"id": tid, "a": observation["a"], "b": observation["b"],
+                                "half_width": observation.get("half_width"),
                                 "seen": timestamp, "created": timestamp, "moving": False, "occluded": False}
         for tid in list(self.tracks):
             if timestamp - self.tracks[tid]["seen"] > self.retire_seconds:
@@ -224,6 +262,9 @@ class StableTracker:
             obj = {"id": t["id"], "a": t["a"], "b": t["b"],
                    "state": "occluded" if t["occluded"] or age > .08 else "tracked",
                    "last_seen_age_ms": round(age*1000), "moving": t["moving"]}
+            if t.get("half_width") is not None:
+                obj["corners"] = rectangular_corners(t["a"], t["b"], t["half_width"])
+                obj["width"] = t["half_width"] * 2
             result.append(obj)
         return result
 
@@ -333,6 +374,8 @@ class RecognitionService:
                         for item in tracked:
                             projected = transform(inverse, [item["a"], item["b"]])
                             item["camera_a"], item["camera_b"] = projected.tolist()
+                            if "corners" in item:
+                                item["camera_corners"] = transform(inverse, item["corners"]).tolist()
                         self.latest_objects = tracked
                 except (ValueError, cv2.error):
                     with self.lock:
