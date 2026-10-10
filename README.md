@@ -1,6 +1,10 @@
 # Interactive Surface
 
-**Version 0.2.0: installation and camera–projector calibration.**
+**Event test version 0.4.1: calibration, physical-object recognition, and ball game.**
+
+**Windows event setup (operate with the laptop lid closed from a phone):** [WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md). The optional [prepare-event-windows.bat](prepare-event-windows.bat) configures AC lid/sleep and a Private-only LAN firewall rule; read the guide before running it as administrator.
+
+**Use the `fix/recognition-ui-goal-persistence` branch for this version; `main` does not yet include the game.**
 
 A local operator UI for calibrating a physical-digital interactive wall. The games are **not yet ported**. The old project remains unchanged: [virtual_wall_balls](https://github.com/Baryshnikovae/virtual_wall_balls).
 
