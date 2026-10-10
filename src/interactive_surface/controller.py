@@ -7,6 +7,7 @@ import threading
 from .cameras import CameraService, discover as discover_cameras, prefer_camera
 from .displays import ProjectorService, prefer_display
 from .geometry import Calibration, quad
+from .recognition import RecognitionService
 from .storage import Store
 
 DEFAULT_CAMERA_QUAD = [[.14,.15],[.86,.15],[.86,.85],[.14,.85]]
@@ -24,6 +25,14 @@ class Controller:
         self.verified = False
         self.saved = self.store.read()
         self.warning = ""
+        self.recognition = RecognitionService(self.camera, self._recognition_geometry)
+        if self.saved.get("recognition"):
+            self.recognition.restore(self.saved["recognition"])
+
+    def _recognition_geometry(self):
+        from .geometry import homography, WALL
+        with self.lock:
+            return {"quad": [p[:] for p in self.camera_quad], "matrix": homography(quad(self.camera_quad), WALL)}
 
     def devices(self) -> dict:
         screens = self.projector.screens()
@@ -36,6 +45,7 @@ class Controller:
             result = self.camera.select(identity, width, height)
             if old["selected"] != identity or old["resolution"] != result["resolution"]:
                 self.verified = False
+                self.recognition.invalidate()
             return result
 
     def open_projector(self, screen):
@@ -57,6 +67,7 @@ class Controller:
             else:
                 raise ValueError("Неизвестная система координат")
             self.verified = False
+            self.recognition.invalidate()
             return self.state()
 
     def calculate(self) -> Calibration:
@@ -102,6 +113,8 @@ class Controller:
                 "matrices":calibration.info(),
                 "simulation": camera["simulation"] or projector["virtual"],
             }
+            if self.recognition.settings and self.saved.get("recognition"):
+                payload["recognition"] = self.saved["recognition"]
             self.store.write(payload)
             self.saved=self.store.read()
             self.verified=True
@@ -126,6 +139,7 @@ class Controller:
                 raise ValueError("Разрешение проектора изменилось; нужна повторная калибровка")
             self.projector.set_quad(self.projector_quad)
             self.projector.set_mode("verify")
+            self.recognition.invalidate()
             self.verified=False
             return self.state()
 
@@ -136,8 +150,44 @@ class Controller:
             self.projector.set_quad(self.projector_quad)
             self.projector.set_mode("calibrate")
             self.verified=False
+            self.recognition.restore({})
             self.store.clear()
             self.saved={}
+            return self.state()
+
+    def choose_background(self, background: str) -> dict:
+        with self.lock:
+            if not self.verified:
+                raise ValueError("Сначала завершите калибровку камеры и проектора")
+            self.recognition.change_background(background)
+            self.projector.set_background(background)
+            self.projector.set_mode("background")
+            return self.recognition.state()
+
+    def freeze_recognition(self):
+        with self.lock:
+            if not self.verified:
+                raise ValueError("Сначала завершите калибровку")
+            return self.recognition.freeze()
+
+    def teach_recognition(self, points: list[list[float]]):
+        with self.lock:
+            if not self.verified:
+                raise ValueError("Сначала завершите калибровку")
+            return self.recognition.learn(points)
+
+    def finish_recognition(self):
+        with self.lock:
+            if not self.verified or self.recognition.settings is None:
+                raise ValueError("Сначала завершите калибровку и обучение цвета")
+            data = self.store.read()
+            if not data:
+                raise ValueError("Не найдена сохранённая пространственная калибровка")
+            data["recognition"] = {"background": self.recognition.background,
+                                   "settings": self.recognition.settings.to_dict()}
+            self.store.write(data)
+            self.saved = self.store.read()
+            self.projector.set_mode("ready")
             return self.state()
 
     def state(self) -> dict:
@@ -150,8 +200,10 @@ class Controller:
             "has_saved_profile":bool(self.saved),
             "saved_at":self.saved.get("timestamp"),
             "saved_simulation":self.saved.get("simulation",False),
+            "recognition": self.recognition.state(),
         }
 
     def close(self):
+        self.recognition.close()
         self.camera.close()
         self.projector.close()
