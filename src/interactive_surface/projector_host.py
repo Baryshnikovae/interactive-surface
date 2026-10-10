@@ -34,6 +34,7 @@ class ProjectionWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.mode = "calibrate"
+        self.background = "black"
         self.quad = [[.12,.13],[.88,.13],[.88,.87],[.12,.87]]
         self.identity = 1
         self.setWindowTitle("Interactive Surface — Проекция")
@@ -52,6 +53,9 @@ class ProjectionWindow(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         w, h = self.width(), self.height()
+        if self.mode == "background":
+            painter.fillRect(self.rect(), QColor("#000000" if self.background == "black" else "#ffffff"))
+            return
         if self.mode == "ready":
             background = QLinearGradient(0, 0, w, h)
             background.setColorAt(0, QColor("#09172c"))
@@ -142,8 +146,10 @@ def main():
                 if isinstance(idx,int) and 0<=idx<len(scr):
                     win.identity=idx+1
                     win.show_screen(scr[idx])
-            if typ=="mode" and cmd.get("mode") in ("calibrate","verify","ready","identify"):
+            if typ=="mode" and cmd.get("mode") in ("calibrate","verify","ready","identify","background"):
                 win.mode=cmd["mode"]
+            if typ=="background" and cmd.get("background") in ("black", "white"):
+                win.background=cmd["background"]
             if typ=="quad" and isinstance(cmd.get("points"),list) and len(cmd["points"])==4:
                 win.quad=cmd["points"]
             win.update()
