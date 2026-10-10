@@ -31,6 +31,7 @@ class GameSettings:
     ball_color: str = "#70e9ff"
     ball_radius: int = 14
     moving_goal: bool = True
+    goal_manual: bool = False
     goal_x: float = 0.78
     goal_y: float = 0.72
     target_hits: int = 5
@@ -63,6 +64,8 @@ class GameSettings:
                 raise ValueError("Количество попаданий должно быть от 1 до 50")
             elif key == "spawn_interval" and (type(value) not in (int, float) or not .2 <= value <= 2):
                 raise ValueError("Интервал появления должен быть от 0,2 до 2 секунд")
+            elif key == "goal_manual" and type(value) is not bool:
+                raise ValueError("Режим размещения лунки должен быть логическим")
             elif key == "max_balls" and (type(value) is not int or not 10 <= value <= 100):
                 raise ValueError("Ограничение шариков должно быть от 10 до 100")
             elif key == "playlist":
@@ -70,6 +73,8 @@ class GameSettings:
                     raise ValueError("Список игр содержит неизвестную игру")
                 value = tuple(value)
             setattr(result, key, value)
+        if ("goal_x" in data or "goal_y" in data) and "goal_manual" not in data:
+            result.goal_manual = True
         if not safe_goal(result.goal_x, result.goal_y):
             raise ValueError("Лунка должна находиться сбоку от центрального потока")
         return result
@@ -123,9 +128,23 @@ class HoleRound:
         self.elapsed = 0.
         self.goal_x = settings.goal_x * W
         self.goal_y = settings.goal_y * H
+        self.base_goal_x = self.goal_x
+        self.base_goal_y = self.goal_y
         self.goal_radius = 45.0
         self.last_hit = -20.
         self._goal_phase = 0.
+        self.randomize_goal()
+
+    def randomize_goal(self, side: int | None = None) -> None:
+        if self.settings.goal_manual:
+            self.base_goal_x = self.settings.goal_x * W
+            self.base_goal_y = self.settings.goal_y * H
+        else:
+            left, right = GOAL_SIDES[side if side in (0, 1) else self.rng.randrange(2)]
+            self.base_goal_x = self.rng.uniform(left + 92, right - 92)
+            self.base_goal_y = self.rng.uniform(670, 790)
+        self._goal_phase = self.rng.uniform(-math.pi, math.pi)
+        self._goal_position(0.)
 
     def set_obstacles(self, objects: list[dict]) -> None:
         seen = set()
@@ -149,11 +168,11 @@ class HoleRound:
 
     def _goal_position(self, dt: float) -> None:
         if not self.settings.moving_goal:
-            self.goal_x = self.settings.goal_x * W
-            self.goal_y = self.settings.goal_y * H
+            self.goal_x = self.base_goal_x
+            self.goal_y = self.base_goal_y
             return
         self._goal_phase += dt * .75
-        base_x, base_y = self.settings.goal_x * W, self.settings.goal_y * H
+        base_x, base_y = self.base_goal_x, self.base_goal_y
         lo, hi = next((lo, hi) for lo, hi in GOAL_SIDES if lo <= base_x <= hi)
         amplitude_x = min(75., base_x-lo, hi-base_x)
         amplitude_y = min(95., base_y-540., 890.-base_y)
@@ -317,6 +336,8 @@ class GameEngine:
             raise ValueError("Неизвестная игра")
         self.current_game = game
         self.round = HoleRound(self.settings)
+        if not self.settings.goal_manual:
+            self.round.randomize_goal(side=self.rounds % 2)
         self.phase = "playing"
         self.rounds += 1
         self._complete_at = 0.
@@ -339,14 +360,18 @@ class GameEngine:
         with self.lock:
             data = asdict(self.settings)
             data.update(updates)
+            if ("goal_x" in updates or "goal_y" in updates) and "goal_manual" not in updates:
+                data["goal_manual"] = True
             new = GameSettings.parse(data)
             self.settings = new
             if self.round:
                 self.round.settings = new
                 # The manual position is immediately effective when movement is off.
-                if "goal_x" in updates or "goal_y" in updates:
-                    self.round._goal_phase = 0.
-                    self.round._goal_position(0.)
+                if "goal_x" in updates or "goal_y" in updates or "goal_manual" in updates:
+                    if "goal_x" in updates or "goal_y" in updates:
+                        new.goal_manual = True
+                        self.settings.goal_manual = True
+                    self.round.randomize_goal()
                 if "ball_radius" in updates:
                     for ball in self.round.balls:
                         ball.radius = new.ball_radius
