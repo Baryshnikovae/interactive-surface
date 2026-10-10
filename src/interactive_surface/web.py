@@ -54,7 +54,9 @@ class BackgroundChoice(BaseModel):
 
 
 class SampleChoice(BaseModel):
-    points: list[list[float]] = Field(min_length=1, max_length=24)
+    points: list[list[float]] | None = None
+    regions: list[list[list[float]]] | None = None
+    negative_regions: list[list[list[float]]] | None = None
 
 
 def _loopback(request: Request) -> bool:
@@ -76,7 +78,7 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
         if owns:
             c.close()
 
-    app = FastAPI(title="Interactive Surface Control", version="0.4.0", lifespan=lifespan)
+    app = FastAPI(title="Interactive Surface Control", version="0.4.1", lifespan=lifespan)
     app.state.controller=c
     app.state.operator_token=key
     app.state.operator_url=operator_url
@@ -242,7 +244,7 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     @app.post("/api/recognition/learn",dependencies=[Depends(authorized)])
     def recognition_learn(body:SampleChoice):
         try:
-            return c.teach_recognition(body.points)
+            return c.teach_recognition(body.points, body.regions, body.negative_regions)
         except ValueError as exc:
             raise HTTPException(400,str(exc)) from exc
 
