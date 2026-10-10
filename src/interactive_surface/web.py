@@ -18,6 +18,8 @@ from .controller import Controller
 
 PAGE = Path(__file__).parent / "static" / "index.html"
 VIRTUAL_PAGE = Path(__file__).parent / "static" / "virtual.html"
+RECOGNITION_PAGE = Path(__file__).parent / "static" / "recognition.html"
+TRACKING_PAGE = Path(__file__).parent / "static" / "tracking.html"
 
 
 class CameraChoice(BaseModel):
@@ -36,6 +38,14 @@ class PointUpdate(BaseModel):
 
 class ModeChoice(BaseModel):
     mode: str
+
+
+class BackgroundChoice(BaseModel):
+    background: str
+
+
+class SampleChoice(BaseModel):
+    points: list[list[float]] = Field(min_length=1, max_length=24)
 
 
 def _loopback(request: Request) -> bool:
@@ -57,7 +67,7 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
         if owns:
             c.close()
 
-    app = FastAPI(title="Interactive Surface Control", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="Interactive Surface Control", version="0.3.0", lifespan=lifespan)
     app.state.controller=c
     app.state.operator_token=key
     app.state.operator_url=operator_url
@@ -71,6 +81,14 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     @app.get("/", include_in_schema=False)
     def home() -> FileResponse:
         return FileResponse(PAGE, media_type="text/html")
+
+    @app.get("/recognition", include_in_schema=False)
+    def recognition_page() -> FileResponse:
+        return FileResponse(RECOGNITION_PAGE, media_type="text/html")
+
+    @app.get("/tracking", include_in_schema=False)
+    def tracking_page() -> FileResponse:
+        return FileResponse(TRACKING_PAGE, media_type="text/html")
 
     @app.get("/virtual-projector", include_in_schema=False)
     def virtual() -> FileResponse:
@@ -181,11 +199,52 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     def reset():
         return c.reset()
 
+    @app.get("/api/recognition/state",dependencies=[Depends(authorized)])
+    def recognition_state():
+        return c.recognition.state()
+
+    @app.post("/api/recognition/background",dependencies=[Depends(authorized)])
+    def recognition_background(body:BackgroundChoice):
+        try:
+            return c.choose_background(body.background)
+        except ValueError as exc:
+            raise HTTPException(400,str(exc)) from exc
+
+    @app.post("/api/recognition/capture",dependencies=[Depends(authorized)])
+    def recognition_capture():
+        try:
+            jpeg, resolution=c.freeze_recognition()
+            return {"ok":True,"resolution":resolution}
+        except ValueError as exc:
+            raise HTTPException(400,str(exc)) from exc
+
+    @app.get("/api/recognition/snapshot",dependencies=[Depends(authorized)])
+    def recognition_snapshot():
+        with c.recognition.lock:
+            jpeg=c.recognition.snapshot_jpeg
+        if jpeg is None:
+            raise HTTPException(404,"Сначала сделайте снимок")
+        return Response(jpeg,media_type="image/jpeg",headers={"Cache-Control":"no-store"})
+
+    @app.post("/api/recognition/learn",dependencies=[Depends(authorized)])
+    def recognition_learn(body:SampleChoice):
+        try:
+            return c.teach_recognition(body.points)
+        except ValueError as exc:
+            raise HTTPException(400,str(exc)) from exc
+
+    @app.post("/api/recognition/finish",dependencies=[Depends(authorized)])
+    def recognition_finish():
+        try:
+            return c.finish_recognition()
+        except ValueError as exc:
+            raise HTTPException(400,str(exc)) from exc
+
     @app.get("/api/projector/visual",dependencies=[Depends(authorized)])
     def visual():
         from .geometry import WALL, homography, transform
         p=c.projector.status()
-        output={"mode":p["mode"],"quad":p["quad"],"active":p["active"],"screen":p["screen"]}
+        output={"mode":p["mode"],"quad":p["quad"],"active":p["active"],"screen":p["screen"],"background":p["background"]}
         if p["mode"] == "verify":
             h=homography(WALL, p["quad"])
             grid=[]

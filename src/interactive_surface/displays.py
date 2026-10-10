@@ -35,6 +35,7 @@ class ProjectorService:
         self.mode = "calibrate"
         self.quad = [[.12,.13],[.88,.13],[.88,.87],[.12,.87]]
         self.virtual = False
+        self.background = "black"
         self.error = ""
 
     def screens(self):
@@ -79,6 +80,7 @@ class ProjectorService:
             self.error = ""
             self._send({"action":"quad","points":self.quad})
             self._send({"action":"mode","mode":self.mode})
+            self._send({"action":"background","background":self.background})
             return self.status()
 
     def _send(self, payload: dict):
@@ -90,11 +92,18 @@ class ProjectorService:
                 self.error = "Проекционное окно отключилось"
 
     def set_mode(self, mode: str):
-        if mode not in ("identify","calibrate","verify","ready"):
+        if mode not in ("identify","calibrate","verify","ready","background"):
             raise ValueError("Неизвестный режим проекции")
         with self.lock:
             self.mode=mode
             self._send({"action":"mode","mode":mode})
+
+    def set_background(self, background: str):
+        if background not in ("black", "white"):
+            raise ValueError("Некорректный цвет фона")
+        with self.lock:
+            self.background = background
+            self._send({"action":"background","background":background})
 
     def set_quad(self, quad: list):
         with self.lock:
@@ -116,4 +125,4 @@ class ProjectorService:
     def status(self):
         with self.lock:
             active=self.virtual or (self.proc is not None and self.proc.poll() is None)
-            return {"active":active, "screen":self.screen_id if active else None, "virtual":self.virtual, "mode":self.mode, "quad":self.quad, "error":self.error}
+            return {"active":active, "screen":self.screen_id if active else None, "virtual":self.virtual, "mode":self.mode, "quad":self.quad, "background":self.background, "error":self.error}
