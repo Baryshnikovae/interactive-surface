@@ -178,7 +178,7 @@ class StableTracker:
             unmatched.remove(j)
             t = self.tracks[tid]
             # A hand often truncates a strip. Hold its geometry until enough of it is visible.
-            occluded = length_ratio < .68 and distance < .025
+            occluded = length_ratio < .70
             if not occluded:
                 old = np.array([t["a"], t["b"]], dtype=float)
                 error = float(np.linalg.norm(q-old, axis=1).max())
@@ -194,6 +194,21 @@ class StableTracker:
             t["occluded"] = occluded
         for j in sorted(unmatched):
             observation = observations[j]
+            q = np.array([observation["a"], observation["b"]])
+            center = q.mean(axis=0)
+            fragment_of_existing = False
+            for previous in self.tracks.values():
+                if timestamp - previous["seen"] > self.hold_seconds:
+                    continue
+                a, b = np.array(previous["a"]), np.array(previous["b"])
+                edge = b-a
+                t = float(np.clip(np.dot(center-a,edge) / max(np.dot(edge,edge),1e-8),0,1))
+                perpendicular = np.linalg.norm(center-(a+t*edge))
+                if perpendicular < .017 and np.linalg.norm(q[1]-q[0]) < .75*np.linalg.norm(edge):
+                    fragment_of_existing = True
+                    break
+            if fragment_of_existing:
+                continue
             tid = self.next_id
             self.next_id += 1
             self.tracks[tid] = {"id": tid, "a": observation["a"], "b": observation["b"],
