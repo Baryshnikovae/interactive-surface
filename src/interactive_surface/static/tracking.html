@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1522"><title>Interactive Surface · Отслеживание объектов</title>
+<style>
+:root{font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#f0f6ff;background:#0b1522;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#1d3146 0%,#0b1522 60%)}
+main{max-width:1320px;margin:auto;padding:19px clamp(12px,3vw,32px) 40px}
+header,.actions,.metrics,.legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap}header{justify-content:space-between}
+h1{font-size:clamp(24px,4vw,34px);letter-spacing:-.04em;margin:25px 0 6px}p{color:#afc4d6;margin:0 0 14px}
+a,button{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 15px;border-radius:11px;background:#20364b;border:1px solid #3c5670;color:#eaf5ff;text-decoration:none;font:inherit;cursor:pointer}
+button.primary{background:#a6fbcc;color:#102f25;border-color:#a6fbcc;font-weight:700}
+.brand{font-weight:800;font-size:17px}.brand span{color:#a6fbcc}.pill{border:1px solid #41604f;padding:6px 12px;border-radius:30px;color:#a6fbcc;font-size:12px}
+.stage{position:relative;width:100%;aspect-ratio:16/9;border:1px solid #344f65;border-radius:16px;background:#050b12;overflow:hidden;margin-top:15px;user-select:none}
+.stage img,.stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}.stage img{object-fit:fill}.stage svg{pointer-events:none}
+.track{stroke:#5bf0a6;fill:#5bf0a61c;stroke-width:4;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.track.occluded{stroke-dasharray:10 7;fill:#5bf0a609}
+.label{fill:#f0fff5;font-weight:800;font-size:24px;paint-order:stroke;stroke:#10302d;stroke-width:5}
+.metrics{margin:14px 0}.metric{flex:1 1 135px;background:#15263a;border:1px solid #294159;padding:12px;border-radius:12px}.metric strong{display:block;color:#d8ffe8;font-size:24px}.metric span{font-size:12px;color:#9bb1c9}
+.legend{color:#afc4d6;margin-top:16px;font-size:13px}.square{width:20px;height:13px;border:2px solid #5bf0a6;display:inline-block}.square.dash{border-style:dashed}
+.alert{padding:16px;border-radius:12px;background:#503039;color:#ffdfe5;margin-top:15px}
+[hidden]{display:none!important}
+.stage:fullscreen{border-radius:0;border:0;background:#000;width:100vw;height:100vh;display:grid;place-items:center}
+@media(max-width:650px){header{align-items:flex-start}header .actions{gap:7px}a,button{padding:10px 12px}.metric{flex-basis:43%}.legend{gap:9px}}
+</style>
+</head>
+<body><main>
+<header><div class="brand">◈ Interactive <span>Surface</span></div><div class="actions"><a href="/recognition">← Распознавание</a><a href="/">Калибровка</a></div></header>
+<h1>Отслеживание объектов</h1>
+<p>Зелёная рамка показывает полный прямоугольник, который получает игровая система. Пунктир означает, что часть объекта временно перекрыта или потеряна.</p>
+<div class="actions"><button id="fullscreen" class="primary" type="button">Развернуть изображение</button><span class="pill" id="connection">Подключение…</span></div>
+<div id="alert" class="alert" hidden role="alert"></div>
+<div class="stage" id="stage"><img id="feed" alt="Прямая трансляция с камеры"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" id="overlay" aria-label="Рамки объектов"></svg></div>
+<div class="metrics"><div class="metric"><strong id="count">—</strong><span>Объектов</span></div><div class="metric"><strong id="held">—</strong><span>Временно перекрыты</span></div><div class="metric"><strong id="fps">—</strong><span>Распознавание, FPS</span></div><div class="metric"><strong id="latency">—</strong><span>Время обработки</span></div></div>
+<div class="legend"><span class="square"></span> Полный прямоугольник <span class="square dash"></span> Удержание при перекрытии</div>
+</main>
+<script>
+(()=>{'use strict';const $=id=>document.getElementById(id);let token='',running=true;
+function notify(message){$('alert').textContent=message;$('alert').hidden=false}
+function coords(corners){return corners.map(pair=>pair.map(value=>Math.round(Number(value)*1000)).join(',')).join(' ')}
+function visual(objects){$('overlay').innerHTML=objects.filter(o=>Array.isArray(o.camera_corners)&&o.camera_corners.length===4&&o.camera_corners.every(p=>p.length===2&&p.every(Number.isFinite))).map(o=>{
+ const corner=o.camera_corners[0],occluded=o.state==='occluded';
+ return '<polygon class="track'+(occluded?' occluded':'')+'" points="'+coords(o.camera_corners)+'"/><text class="label" x="'+Math.round(corner[0]*1000)+'" y="'+Math.round(corner[1]*1000-14)+'">'+Number(o.id)+'</text>';
+}).join('')}
+async function poll(){if(!running)return;try{
+ const response=await fetch('/api/recognition/state',{headers:{'X-Control-Token':token},cache:'no-store'});
+ if(!response.ok)throw Error('Не удалось получить данные распознавания');
+ const data=await response.json();$('connection').textContent=data.configured?'Распознавание активно':'Сначала настройте цвет';
+ $('count').textContent=data.objects.length;$('held').textContent=data.objects.filter(o=>o.state==='occluded').length;
+ $('fps').textContent=data.fps+' FPS';$('latency').textContent=data.processing_ms+' мс';
+ visual(data.objects);$('alert').hidden=true;
+ }catch(e){notify(e.message)}finally{if(running)setTimeout(poll,120)}}
+async function init(){
+ const query=new URLSearchParams(location.search).get('token');
+ if(query){sessionStorage.setItem('surfaceKey',query);history.replaceState({},'',location.pathname)}
+ token=sessionStorage.getItem('surfaceKey')||'';
+ const session=await fetch('/api/session',{headers:token?{'X-Control-Token':token}:{}}).then(r=>r.json());
+ if(session.token){token=session.token;sessionStorage.setItem('surfaceKey',token)}
+ if(!session.authorized){notify('Нет доступа: откройте страницу с ноутбука или через QR-код');$('connection').textContent='Нет доступа';return}
+ const response=await fetch('/api/state',{headers:{'X-Control-Token':token}});
+ if(!response.ok)throw Error('Не удалось получить состояние системы');
+ const state=await response.json();const resolution=state.camera?.resolution;
+ if(resolution?.length===2&&resolution[0]&&resolution[1])$('stage').style.aspectRatio=resolution[0]+'/'+resolution[1];
+ $('feed').src='/api/camera/stream?token='+encodeURIComponent(token);poll();
+}
+$('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else $('stage').requestFullscreen?.()};
+window.addEventListener('pagehide',()=>running=false);init().catch(e=>notify(e.message));
+})();
+</script></body></html>
