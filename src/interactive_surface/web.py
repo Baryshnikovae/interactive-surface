@@ -19,7 +19,16 @@ from .controller import Controller
 PAGE = Path(__file__).parent / "static" / "index.html"
 VIRTUAL_PAGE = Path(__file__).parent / "static" / "virtual.html"
 RECOGNITION_PAGE = Path(__file__).parent / "static" / "recognition.html"
+GAME_PAGE = Path(__file__).parent / "static" / "games.html"
 TRACKING_PAGE = Path(__file__).parent / "static" / "tracking.html"
+
+
+class GameChoice(BaseModel):
+    game: str = "hole"
+
+
+class GameChange(BaseModel):
+    changes: dict
 
 
 class CameraChoice(BaseModel):
@@ -67,7 +76,7 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
         if owns:
             c.close()
 
-    app = FastAPI(title="Interactive Surface Control", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(title="Interactive Surface Control", version="0.4.0", lifespan=lifespan)
     app.state.controller=c
     app.state.operator_token=key
     app.state.operator_url=operator_url
@@ -81,6 +90,10 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     @app.get("/", include_in_schema=False)
     def home() -> FileResponse:
         return FileResponse(PAGE, media_type="text/html")
+
+    @app.get("/games", include_in_schema=False)
+    def games_page() -> FileResponse:
+        return FileResponse(GAME_PAGE, media_type="text/html")
 
     @app.get("/recognition", include_in_schema=False)
     def recognition_page() -> FileResponse:
@@ -240,11 +253,39 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
         except ValueError as exc:
             raise HTTPException(400,str(exc)) from exc
 
+    @app.get("/api/games",dependencies=[Depends(authorized)])
+    def games_catalog():
+        return {"games": c.game.available_games}
+
+    @app.get("/api/game/state",dependencies=[Depends(authorized)])
+    def game_state():
+        return c.game.state()
+
+    @app.post("/api/game/start",dependencies=[Depends(authorized)])
+    def game_start(body: GameChoice):
+        try:
+            return c.start_game(body.game)
+        except ValueError as exc:
+            raise HTTPException(400,str(exc)) from exc
+
+    @app.post("/api/game/stop",dependencies=[Depends(authorized)])
+    def game_stop():
+        return c.stop_game()
+
+    @app.post("/api/game/settings",dependencies=[Depends(authorized)])
+    def game_settings(body: GameChange):
+        try:
+            return c.configure_game(body.changes)
+        except ValueError as exc:
+            raise HTTPException(400,str(exc)) from exc
+
     @app.get("/api/projector/visual",dependencies=[Depends(authorized)])
     def visual():
         from .geometry import WALL, homography, transform
         p=c.projector.status()
         output={"mode":p["mode"],"quad":p["quad"],"active":p["active"],"screen":p["screen"],"background":p["background"]}
+        if p["mode"] == "game":
+            output["game"] = c.game.state()
         if p["mode"] == "verify":
             h=homography(WALL, p["quad"])
             grid=[]
