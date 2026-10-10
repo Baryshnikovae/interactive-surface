@@ -4,9 +4,31 @@
 
 **Windows event setup (operate with the laptop lid closed from a phone):** [WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md). The optional [prepare-event-windows.bat](prepare-event-windows.bat) configures AC lid/sleep and a Private-only LAN firewall rule; read the guide before running it as administrator.
 
-**Use the `fix/recognition-ui-goal-persistence` branch for this version; `main` does not yet include the game.**
+**Вся актуальная версия находится в `main`. Не нужно искать или переключать ветки.**
 
-A local operator UI for calibrating a physical-digital interactive wall. The games are **not yet ported**. The old project remains unchanged: [virtual_wall_balls](https://github.com/Baryshnikovae/virtual_wall_balls).
+Local operator UI for camera/projector calibration, colour recognition and the **«Шарики и лунка»** game. Old project: [virtual_wall_balls](https://github.com/Baryshnikovae/virtual_wall_balls).
+
+## Быстрый старт — всегда из `main`
+
+**Windows (Command Prompt):**
+
+```cmd
+cd /d "%USERPROFILE%"
+git clone https://github.com/Baryshnikovae/interactive-surface.git
+cd interactive-surface
+start.bat
+```
+
+**Linux / Manjaro:**
+
+```bash
+cd ~/Загрузки
+git clone https://github.com/Baryshnikovae/interactive-surface.git
+cd interactive-surface
+sh start.sh
+```
+
+Для работы с закрытой крышкой Windows и телефоном смотри [инструкцию](WINDOWS_EVENT_SETUP.md).
 
 ## Launch on Manjaro / other Linux
 
@@ -106,7 +128,7 @@ Recognition runs in its own worker using the **latest** frame from the shared ca
 
 The target is lightweight real-time tracking, not guaranteed identification under full occlusion or arbitrary projector artwork. Bright moving projected graphics that match the plastic colour may create false positives; constant black/white background is the validated operating assumption for this stage. Real camera/projector latency, shadows, reflections and FPS require on-site measurement. Hardware validation intentionally deferred until the rest of the system is built.
 
-## Version 0.4 — ball game and round control (in `feat/ball-game-and-cycling`)
+## Version 0.4 — ball game and round control (in `main`)
 
 After spatial calibration and colour recognition, open **`/games`** from the
 calibration dashboard, or from any phone already paired with the LAN controller.
@@ -150,17 +172,17 @@ stops gameplay until it has been checked again.
   calibration, rather than repeatedly warping a full-resolution image.
 - Operator page runs its own animation loop and cannot block the game physics.
 
-### Installing and running this development branch
+### Installing and running from `main`
 
 Linux / Manjaro:
 
 ```bash
- git clone -b feat/ball-game-and-cycling https://github.com/Baryshnikovae/interactive-surface.git
- cd interactive-surface
- ./start.sh
+git clone https://github.com/Baryshnikovae/interactive-surface.git
+cd interactive-surface
+sh start.sh
 ```
 
-Windows: clone the same branch and run `start.bat`. The existing scripts
+Windows: clone the default `main` branch and run `start.bat`. The existing scripts
 install the declared Python dependencies when needed.
 
 Automated tests:
@@ -188,12 +210,12 @@ LAN. There is no soundtrack or image upload in this milestone.
 - Stored colour settings are independent for black and white projected backgrounds. Selecting the same camera, video resolution and display on a subsequent launch restores compatible calibration and colour automatically, while changed hardware requires checking the setup.
 - The hole appears at a newly randomized **lower-left/lower-right location** each round, alternating sides without entering the central drop corridor. Tapping the map manually pins the hole; choose **Случайное положение каждый раунд** to restore randomness. The projector no longer displays the top «ЛУНКА» heading.
 
-Update the existing **single-branch** Manjaro checkout (stop the current server first):
+Update a previously cloned Manjaro checkout (stop the current server first):
 
 ```bash
 cd ~/Загрузки/interactive-surface-test
-git fetch origin fix/recognition-ui-goal-persistence
-git switch -C fix/recognition-ui-goal-persistence FETCH_HEAD
+git fetch origin main
+git switch -C main origin/main
 sh start.sh
 ```
 
