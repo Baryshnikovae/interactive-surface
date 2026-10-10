@@ -121,7 +121,7 @@ def paint_game(p: QPainter, snapshot: dict, quad: list, display_w: int, display_
     p.setPen(fg)
     p.setFont(QFont("Sans Serif", 35, QFont.Weight.Bold))
     if phase == "playing":
-        p.drawText(QRectF(40, 22, 550, 55), Qt.AlignmentFlag.AlignLeft, "ЛУНКА")
+        # Decorative heading removed; score remains on the operator dashboard.
         p.setFont(QFont("Sans Serif", 28, QFont.Weight.Medium))
         p.drawText(QRectF(40, 78, 400, 55), Qt.AlignmentFlag.AlignLeft,
                    f"{snapshot.get('score',0)} / {snapshot.get('target',5)}")
