@@ -237,13 +237,7 @@ class Controller:
         with self.lock:
             if not self.verified or self.recognition.settings is None:
                 raise ValueError("Сначала завершите калибровку и обучение цвета")
-            data = self.store.read()
-            if not data:
-                raise ValueError("Не найдена сохранённая пространственная калибровка")
-            data["recognition"] = {"background": self.recognition.background,
-                                   "settings": self.recognition.settings.to_dict()}
-            self.store.write(data)
-            self.saved = self.store.read()
+            self._save_recognition()
             self.projector.set_mode("ready")
             return self.state()
 
