@@ -1,6 +1,10 @@
 # Interactive Surface
 
-**Version 0.2.0: installation and camera–projector calibration.**
+**Event test version 0.4.1: calibration, physical-object recognition, and ball game.**
+
+**Windows event setup (operate with the laptop lid closed from a phone):** [WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md). The optional [prepare-event-windows.bat](prepare-event-windows.bat) configures AC lid/sleep and a Private-only LAN firewall rule; read the guide before running it as administrator.
+
+**Use the `fix/recognition-ui-goal-persistence` branch for this version; `main` does not yet include the game.**
 
 A local operator UI for calibrating a physical-digital interactive wall. The games are **not yet ported**. The old project remains unchanged: [virtual_wall_balls](https://github.com/Baryshnikovae/virtual_wall_balls).
 
@@ -98,8 +102,99 @@ On Linux, camera enumeration uses `/dev/video*` and `/dev/v4l/by-id`; only compa
 
 After camera/projector calibration, select **Настроить распознавание**. The page uses the same LAN server and operator session. Choose black or white projector background, place bright matte strips across the wall, freeze one camera frame, tap one or more coloured sample regions, and inspect the live overlay. The colour selection is based on robust circular-HSV statistics, with shape used only to estimate line geometry. Finish saves background/thresholds into the local calibration file. Changing the background invalidates the learnt colour settings and requires retraining.
 
-Recognition runs in its own worker using the **latest** frame from the shared camera. The web preview is independently JPEG-encoded and does not drive the detector. The game-facing `/api/recognition/state` exposes stable IDs, full `corners` (four corners of a rectangular collider in normalized **wall-space**), `width`, line endpoints `a` / `b`, visibility/occlusion state, latency and detector FPS. The corresponding `camera_corners` are provided only for the browser overlay. The colour contour may be fragmented or partly hidden by a hand: the tracker temporarily preserves the last reliable full rectangle rather than shrinking the physics object.
-
-The separate **/tracking** diagnostic mode displays a live camera image with green rectangular outlines and IDs. Dashed outlines indicate temporary occlusion. It is also available from the recognition wizard and the main control page. Future game rendering must not wait on this endpoint; use current tracked state with an independent physics/render loop. Future game rendering must not wait on this endpoint; use current tracked state with an independent physics/render loop.
+Recognition runs in its own worker using the **latest** frame from the shared camera. The web preview is independently JPEG-encoded and does not drive the detector. The game-facing `/api/recognition/state` exposes line endpoints in normalized **wall-space**, IDs, last observation state, processing latency and detector FPS. `camera_a` / `camera_b` are additional coordinates used for browser debugging. Future game rendering must not wait on this endpoint; use current tracked state with an independent physics/render loop.
 
 The target is lightweight real-time tracking, not guaranteed identification under full occlusion or arbitrary projector artwork. Bright moving projected graphics that match the plastic colour may create false positives; constant black/white background is the validated operating assumption for this stage. Real camera/projector latency, shadows, reflections and FPS require on-site measurement. Hardware validation intentionally deferred until the rest of the system is built.
+
+## Version 0.4 — ball game and round control (in `feat/ball-game-and-cycling`)
+
+After spatial calibration and colour recognition, open **`/games`** from the
+calibration dashboard, or from any phone already paired with the LAN controller.
+The actual projection is drawn by the existing Qt fullscreen window; the phone
+only sends control actions. With the virtual screen selected, use
+`/virtual-projector` to view a simulated output.
+
+The first game is **Balls into the Hole**. Recognized rectangle corners become
+physical colliders, preserving the full rectangle during short hand occlusions.
+Balls spawn at the top centre, fall under gravity, bounce off strips and can
+be steered into a side goal. The goal orbits smoothly in a restricted side
+corridor, never crossing the central fall line. Tap a safe part of the map on
+`/games` to change its position, and switch motion on/off separately.
+
+Configure ball color, radius (8–26 logical wall pixels), appearance (`solid`,
+`orbit`, `comet`) and visual style (`flat` or `neon`) from the same responsive
+web page. The selected black/white projector background is inherited from
+recognition. Changing that background invalidates the color calibration and
+stops gameplay until it has been checked again.
+
+### Round modes
+
+- **Manual:** on a win screen until an operator starts another round.
+- **Repeat:** wait for the win message, then restart the same game.
+- **Sequence:** after winning, advance to the next installed game in the
+  configured playlist. **At present only `hole` is implemented**, so sequence
+  behaves like repeat until additional mechanics are added. The engine and API
+  are ready for future game registration.
+
+### Performance design
+
+- Fixed **120 Hz** simulation in a dedicated thread, independent of camera
+  tracking and the Qt drawing loop (nominal **60 Hz** repaint).
+- Recognition objects are sampled up to 30 Hz, with stable rectangular
+  collider geometry reused unless it actually moves.
+- Latest-frame-only camera processing from the previous release stays intact.
+- Ball list is bounded (10–100, default 65). Balls beyond the surface +
+  margin or older than 12 seconds are removed, and all balls are cleared
+  after a win. A spatial grid limits ball-to-ball candidate comparisons.
+- Projector uses a projective Qt painter transform from the actual four-point
+  calibration, rather than repeatedly warping a full-resolution image.
+- Operator page runs its own animation loop and cannot block the game physics.
+
+### Installing and running this development branch
+
+Linux / Manjaro:
+
+```bash
+ git clone -b feat/ball-game-and-cycling https://github.com/Baryshnikovae/interactive-surface.git
+ cd interactive-surface
+ ./start.sh
+```
+
+Windows: clone the same branch and run `start.bat`. The existing scripts
+install the declared Python dependencies when needed.
+
+Automated tests:
+
+```bash
+ python -m pip install -e '.[dev]'
+ python -m pytest -q
+```
+
+### Known limits before venue tests
+
+Real camera / USB and physical projector placement still require on-site tests.
+Qt rendering / frame pacing with the actual GPU, driver and Wayland compositor
+must be evaluated. The numerical benchmark measures the physics loop only, not
+end-to-end projector latency or frame pacing. Gameplay currently implements one
+mechanic and assumes one camera, one projector and one calibrated plane.
+Objects heavily occluded for longer than the detector grace period cannot be
+tracked reliably. The local operator token should not be shared beyond a trusted
+LAN. There is no soundtrack or image upload in this milestone.
+
+## Version 0.4.1 — calibration usability hotfix
+
+- In **/recognition**, select an object by its **four corners** on the frozen frame. Drag a selected corner to refine it; add more green sticker regions and red *exclude-colour* regions (skin, wall, etc.). Undo and remove unwanted selections directly in the mobile UI. Learned colours are saved automatically.
+- Rectangular physical objects use a principal-axis estimate for elongated contours; briefly obscured strips retain their full collision rectangles and update orientation when an elongated visible fragment remains.
+- Stored colour settings are independent for black and white projected backgrounds. Selecting the same camera, video resolution and display on a subsequent launch restores compatible calibration and colour automatically, while changed hardware requires checking the setup.
+- The hole appears at a newly randomized **lower-left/lower-right location** each round, alternating sides without entering the central drop corridor. Tapping the map manually pins the hole; choose **Случайное положение каждый раунд** to restore randomness. The projector no longer displays the top «ЛУНКА» heading.
+
+Update the existing **single-branch** Manjaro checkout (stop the current server first):
+
+```bash
+cd ~/Загрузки/interactive-surface-test
+git fetch origin fix/recognition-ui-goal-persistence
+git switch -C fix/recognition-ui-goal-persistence FETCH_HEAD
+sh start.sh
+```
+
+Local calibration, colour and game settings are stored outside Git in `~/.config/interactive-surface/calibration.json` by default. Back this file up before resetting the installation. False positives whose HSV values are essentially identical to the target colour cannot always be separated by colour alone; avoid matching colours in clothing, or use controlled lighting and the red exclusion samples.
