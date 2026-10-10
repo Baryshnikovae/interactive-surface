@@ -19,6 +19,7 @@ from .controller import Controller
 PAGE = Path(__file__).parent / "static" / "index.html"
 VIRTUAL_PAGE = Path(__file__).parent / "static" / "virtual.html"
 RECOGNITION_PAGE = Path(__file__).parent / "static" / "recognition.html"
+TRACKING_PAGE = Path(__file__).parent / "static" / "tracking.html"
 
 
 class CameraChoice(BaseModel):
@@ -84,6 +85,10 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     @app.get("/recognition", include_in_schema=False)
     def recognition_page() -> FileResponse:
         return FileResponse(RECOGNITION_PAGE, media_type="text/html")
+
+    @app.get("/tracking", include_in_schema=False)
+    def tracking_page() -> FileResponse:
+        return FileResponse(TRACKING_PAGE, media_type="text/html")
 
     @app.get("/virtual-projector", include_in_schema=False)
     def virtual() -> FileResponse:
