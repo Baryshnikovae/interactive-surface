@@ -107,3 +107,26 @@ def test_snapshot_learning_api_and_background_reset(tmp_path):
         assert client.post('/api/recognition/background',headers=headers,json={'background':'white'}).json()['configured'] is False
         assert client.get('/api/recognition/state').status_code==401
     controller.close()
+
+
+def test_hand_splits_strip_without_ghost_object():
+    original = frame()
+    occluded = frame(hand=True)
+    settings = learn_colour(original, [[150/320, 120/240]])
+    observations, _, _ = detect(original, settings, QUAD)
+    cut, _, _ = detect(occluded, settings, QUAD)
+    assert len(observations)==1 and len(cut)==2
+    tracker=StableTracker()
+    stable=tracker.update(observations, 100.)
+    tracked=tracker.update(cut, 100.033)
+    assert len(tracked)==1
+    assert tracked[0]["id"]==stable[0]["id"]
+    assert tracked[0]["state"]=="occluded"
+    assert np.allclose(tracked[0]["a"], stable[0]["a"])
+
+
+def test_background_and_colour_settings_validation():
+    with pytest.raises(ValueError):
+        ColourSettings.from_dict({"hue": 10, "tolerance": 78, "saturation": 20, "value": 30})
+    with pytest.raises(ValueError):
+        learn_colour(frame(), [[1.4,.5]])
