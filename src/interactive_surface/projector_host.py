@@ -15,6 +15,7 @@ import queue
 from PySide6.QtCore import Qt, QTimer, QPointF
 from PySide6.QtGui import QPainter, QPen, QColor, QFont, QBrush, QLinearGradient
 from PySide6.QtWidgets import QApplication, QWidget
+from .game_render import paint_game
 
 
 def screens(app: QApplication) -> list[dict]:
@@ -37,6 +38,7 @@ class ProjectionWindow(QWidget):
         self.background = "black"
         self.quad = [[.12,.13],[.88,.13],[.88,.87],[.12,.87]]
         self.identity = 1
+        self.game_frame = {}
         self.setWindowTitle("Interactive Surface — Проекция")
         self.setCursor(Qt.CursorShape.BlankCursor)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -53,6 +55,10 @@ class ProjectionWindow(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         w, h = self.width(), self.height()
+        if self.mode == "game":
+            paint_game(painter, self.game_frame, self.quad, w, h, self.background)
+            painter.end()
+            return
         if self.mode == "background":
             painter.fillRect(self.rect(), QColor("#000000" if self.background == "black" else "#ffffff"))
             return
@@ -105,7 +111,16 @@ class ProjectionWindow(QWidget):
 def _read_stdin(queue_):
     for line in sys.stdin:
         try:
-            queue_.put(json.loads(line))
+            payload = json.loads(line)
+            if payload.get("action") == "game_frame":
+                try:
+                    queue_.put_nowait(payload)
+                except queue.Full:
+                    try: queue_.get_nowait()
+                    except queue.Empty: pass
+                    queue_.put_nowait(payload)
+            else:
+                queue_.put(payload)
         except ValueError:
             continue
 
@@ -130,7 +145,7 @@ def main():
     win.identity=args.screen+1
     win.show_screen(allscreens[args.screen])
     print(json.dumps({"ready":True,"screen":args.screen}), flush=True)
-    commands=queue.Queue()
+    commands=queue.Queue(maxsize=256)
     threading.Thread(target=_read_stdin, args=(commands,), daemon=True).start()
 
     def poll():
@@ -140,13 +155,15 @@ def main():
             if typ=="quit":
                 app.quit()
                 return
+            if typ=="game_frame":
+                win.game_frame=cmd.get("frame") or {}
             if typ=="screen":
                 idx=cmd.get("id")
                 scr=app.screens()
                 if isinstance(idx,int) and 0<=idx<len(scr):
                     win.identity=idx+1
                     win.show_screen(scr[idx])
-            if typ=="mode" and cmd.get("mode") in ("calibrate","verify","ready","identify","background"):
+            if typ=="mode" and cmd.get("mode") in ("calibrate","verify","ready","identify","background","game"):
                 win.mode=cmd["mode"]
             if typ=="background" and cmd.get("background") in ("black", "white"):
                 win.background=cmd["background"]
@@ -156,7 +173,10 @@ def main():
 
     timer=QTimer()
     timer.timeout.connect(poll)
-    timer.start(30)
+    timer.start(8)
+    animation=QTimer()
+    animation.timeout.connect(lambda: win.update() if win.mode == "game" else None)
+    animation.start(16)
     app.exec()
 
 

@@ -92,7 +92,7 @@ class ProjectorService:
                 self.error = "Проекционное окно отключилось"
 
     def set_mode(self, mode: str):
-        if mode not in ("identify","calibrate","verify","ready","background"):
+        if mode not in ("identify","calibrate","verify","ready","background","game"):
             raise ValueError("Неизвестный режим проекции")
         with self.lock:
             self.mode=mode
@@ -109,6 +109,12 @@ class ProjectorService:
         with self.lock:
             self.quad=quad
             self._send({"action":"quad","points":quad})
+
+    def publish_game(self, frame: dict):
+        # Server owns physics; only lean immutable snapshots travel to the Qt display.
+        with self.lock:
+            if self.mode == "game" and not self.virtual:
+                self._send({"action":"game_frame","frame":frame})
 
     def close(self):
         with self.lock:
