@@ -93,3 +93,11 @@ On Linux, camera enumeration uses `/dev/video*` and `/dev/v4l/by-id`; only compa
 - Test several hours of continuous preview and calibration to check capture recovery, stability and latency.
 
 **Not physically validated in this build:** cross-OS Qt display placement, Windows/USB capture selection and projector accuracy. These need a live installation test.
+
+## Recognition configuration (v0.3)
+
+After camera/projector calibration, select **Настроить распознавание**. The page uses the same LAN server and operator session. Choose black or white projector background, place bright matte strips across the wall, freeze one camera frame, tap one or more coloured sample regions, and inspect the live overlay. The colour selection is based on robust circular-HSV statistics, with shape used only to estimate line geometry. Finish saves background/thresholds into the local calibration file. Changing the background invalidates the learnt colour settings and requires retraining.
+
+Recognition runs in its own worker using the **latest** frame from the shared camera. The web preview is independently JPEG-encoded and does not drive the detector. The game-facing `/api/recognition/state` exposes line endpoints in normalized **wall-space**, IDs, last observation state, processing latency and detector FPS. `camera_a` / `camera_b` are additional coordinates used for browser debugging. Future game rendering must not wait on this endpoint; use current tracked state with an independent physics/render loop.
+
+The target is lightweight real-time tracking, not guaranteed identification under full occlusion or arbitrary projector artwork. Bright moving projected graphics that match the plastic colour may create false positives; constant black/white background is the validated operating assumption for this stage. Real camera/projector latency, shadows, reflections and FPS require on-site measurement. Hardware validation intentionally deferred until the rest of the system is built.
