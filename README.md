@@ -176,3 +176,21 @@ mechanic and assumes one camera, one projector and one calibrated plane.
 Objects heavily occluded for longer than the detector grace period cannot be
 tracked reliably. The local operator token should not be shared beyond a trusted
 LAN. There is no soundtrack or image upload in this milestone.
+
+## Version 0.4.1 — calibration usability hotfix
+
+- In **/recognition**, select an object by its **four corners** on the frozen frame. Drag a selected corner to refine it; add more green sticker regions and red *exclude-colour* regions (skin, wall, etc.). Undo and remove unwanted selections directly in the mobile UI. Learned colours are saved automatically.
+- Rectangular physical objects use a principal-axis estimate for elongated contours; briefly obscured strips retain their full collision rectangles and update orientation when an elongated visible fragment remains.
+- Stored colour settings are independent for black and white projected backgrounds. Selecting the same camera, video resolution and display on a subsequent launch restores compatible calibration and colour automatically, while changed hardware requires checking the setup.
+- The hole appears at a newly randomized **lower-left/lower-right location** each round, alternating sides without entering the central drop corridor. Tapping the map manually pins the hole; choose **Случайное положение каждый раунд** to restore randomness. The projector no longer displays the top «ЛУНКА» heading.
+
+Update the existing **single-branch** Manjaro checkout (stop the current server first):
+
+```bash
+cd ~/Загрузки/interactive-surface-test
+git fetch origin fix/recognition-ui-goal-persistence
+git switch -C fix/recognition-ui-goal-persistence FETCH_HEAD
+sh start.sh
+```
+
+Local calibration, colour and game settings are stored outside Git in `~/.config/interactive-surface/calibration.json` by default. Back this file up before resetting the installation. False positives whose HSV values are essentially identical to the target colour cannot always be separated by colour alone; avoid matching colours in clothing, or use controlled lighting and the red exclusion samples.
