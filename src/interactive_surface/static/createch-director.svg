@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 430" shape-rendering="crispEdges">
+<title>Createch pixel character with bucket</title>
+<defs>
+<linearGradient id="suit" x2="1" y2="1"><stop stop-color="#34415b"/><stop offset="1" stop-color="#101727"/></linearGradient>
+<linearGradient id="bucket" x2="0.9" y2="1"><stop stop-color="#ff92e5"/><stop offset=".4" stop-color="#e51bbd"/><stop offset="1" stop-color="#8c0875"/></linearGradient>
+</defs>
+<!-- pixel shadow and feet -->
+<path fill="#24142c" d="M78 391h70v16H78zm103 0h62v16h-62z"/>
+<path fill="#101526" d="M99 299h48v93H96v-69zm77 0h48v93h-48z"/>
+<path fill="#243148" d="M104 315h8v66h-8zm77 0h8v66h-8z"/>
+<path fill="#14151d" d="M90 388h60v15H77v-9h13zm85 0h61v15h-68v-9h7z"/>
+<!-- Jacket, shoulders and waist -->
+<path fill="#131c2f" d="M73 150h53v-12h71v12h55v16h18v128h-29v40H86v-40H55V171h18z"/>
+<path fill="#34455e" d="M73 150h29v15H82v21H70v95H59V170h14zm150 2h26v17h13v106h-11v-95h-16v-13h-12z"/>
+<path fill="#0a1121" d="M124 160h25v155h-43v-91zm50 0h22l27 64-19 88h-48z"/>
+<path fill="#e9eef5" d="M128 149h61l-8 90-21 35-23-44z"/>
+<path fill="#b8d0e6" d="M156 171h8v91h-8z"/>
+<path fill="#101b2f" d="M126 149l-22 21 32 80 22-36-22-32zm67 0 24 25-34 84-23-43 23-33z"/>
+<path fill="#465977" d="M107 183h8v34h-8zm92-5h9v39h-9z"/>
+<path fill="#f8a9dd" d="M158 183h8v11h-8z"/>
+<path fill="#191426" d="M155 193h14l-3 63-7 11-8-10z"/>
+<!-- hands and mic arm -->
+<path fill="#283954" d="M63 229h24v54H63zm170-2h24v55h-24z"/>
+<path fill="#e2a782" d="M68 273h22v28H67v-8h-7v-14h8zm175-2h22v29h-30v-12h8z"/>
+<path fill="#f4c09c" d="M70 274h18v19H70zm168 2h23v15h-23z"/>
+<path fill="#a96e57" d="M79 280h5v16h-5zm159 8h24v5h-24z"/>
+<path fill="#35465a" d="M82 186h12v104H82zm142-3h11v103h-11z"/>
+<!-- neck -->
+<path fill="#b98769" d="M141 124h38v37h-38z"/>
+<path fill="#f0b896" d="M144 121h31v34h-31z"/>
+<!-- Head silhouette, ears -->
+<path fill="#b57c65" d="M124 61h12v-18h52v13h14v59h-9v17h-11v12h-39v-12h-12v-15h-8z"/>
+<path fill="#f3bd9d" d="M134 66h56v52h-8v13h-38v-12h-10z"/>
+<path fill="#dba082" d="M125 84h11v26h-11zm65 0h13v27h-13z"/>
+<path fill="#9a6757" d="M126 91h8v11h-8zm68-1h8v10h-8z"/>
+<!-- cropped gray-brown hair, close to photo -->
+<path fill="#3d3941" d="M127 58h8V43h11V32h41v9h12v15h5v31h-11V61h-12v-8h-33v5h-14v23h-10z"/>
+<path fill="#67656b" d="M135 43h11v-9h37v9h12v11h-12v-8h-48zm-8 20h8v19h-8z"/>
+<path fill="#8d8c91" d="M144 35h25v7h-25zm43 10h8v11h-8z"/>
+<path fill="#292833" d="M134 62h8v-9h45v8h-45v9h-8z"/>
+<!-- brows / eyes / nose / smile -->
+<path fill="#765447" d="M142 80h16v4h-16zm23 1h16v4h-16z"/>
+<path fill="#253044" d="M148 88h7v5h-7zm22 0h7v5h-7z"/>
+<path fill="#f8ddc5" d="M146 94h7v4h-7zm22 0h7v4h-7z"/>
+<path fill="#ce9478" d="M158 94h7v18h-7z"/>
+<path fill="#a66f60" d="M158 108h8v5h-8z"/>
+<path fill="#925e58" d="M151 120h23v5h-23z"/>
+<path fill="#e8a48d" d="M155 125h15v4h-15z"/>
+<path fill="#c48778" d="M140 104h5v11h-5zm41 0h5v10h-5z"/>
+<!-- lapels / pocket -->
+<path fill="#425674" d="M121 157l-17 17 33 70-14-56zm73 0 17 17-33 70 13-56z"/>
+<path fill="#f7c0e7" d="M204 214h17v5h-17zm-5 6h16v4h-16z"/>
+<path fill="#091021" d="M158 279h8v8h-8zm0 25h8v8h-8z"/>
+<!-- bucket held in front at waist height -->
+<path fill="#d3acd5" d="M86 269h150v13H86z"/>
+<path fill="#4e163f" d="M96 282h130l-12 95H109z"/>
+<path fill="url(#bucket)" d="M103 282h119l-13 89h-95z"/>
+<path fill="#ffb2ea" d="M105 284h11l10 81h-11z"/>
+<path fill="#a50f89" d="M192 285h21l-13 80h-13z"/>
+<path fill="#ff82d6" d="M83 262h154v21H83z"/>
+<path fill="#ffcbef" d="M89 263h142v6H89z"/>
+<path fill="#4a173b" d="M98 277h124v7H98z"/>
+<path fill="#ffb3e6" d="M138 300h45v50h-45z"/>
+<path fill="#b11394" d="M145 308h12v33h-12zm14 0h8v12h-8zm8 12h9v8h-9zm-8 0h8v9h-8zm-2 11h8v10h-8z"/>
+<!-- rim shine / small arms -->
+<path fill="#f5c0a0" d="M76 270h20v16H76zm145 0h20v16h-20z"/>
+<path fill="#e1a083" d="M87 275h9v10h-9zm134 0h9v10h-9z"/>
+</svg>
