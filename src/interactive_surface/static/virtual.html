@@ -44,15 +44,13 @@ function createchPaint(map, state, dark, dpr) {
  }
  const goal=state.goal||[.25,.705,31.],gx=goal[0]*1600,gy=goal[1]*1000;
  if(['preview','playing','won'].includes(state.phase)){
-    const w=335,h=393,x=gx-.585*w,y=gy-.524*h;
+    const w=205,h=276,x=gx-.71*w,y=gy-.53*h;
     const a=pt(x,y),b=pt(x+w,y),c=pt(x,y+h);
     if(director.complete&&director.naturalWidth){
-      cc.save();cc.imageSmoothingEnabled=false;
+      cc.save();cc.imageSmoothingEnabled=true;
       cc.transform((b[0]-a[0])/w,(b[1]-a[1])/w,
         (c[0]-a[0])/h,(c[1]-a[1])/h,a[0],a[1]);
-      if(director.src.endsWith('.svg'))cc.drawImage(director,0,0,w,h);
-      else cc.drawImage(director,director.naturalWidth*.20,0,
-        director.naturalWidth*.66,director.naturalHeight*.589,0,0,w,h);
+      cc.drawImage(director,0,0,w,h);
       cc.restore();
     }else{
       path([[gx-32,gy-5],[gx+32,gy-5],[gx+25,gy+45],[gx-25,gy+45]],pink,2,'#79045e');
