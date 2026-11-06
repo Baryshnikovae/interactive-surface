@@ -58,8 +58,8 @@ class GameSettings:
                 raise ValueError("Неизвестный дизайн шарика")
             elif key == "ball_color" and (not isinstance(value, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", value)):
                 raise ValueError("Укажите цвет в формате #RRGGBB")
-            elif key == "ball_radius" and (type(value) is not int or not 8 <= value <= 26):
-                raise ValueError("Радиус шарика должен быть от 8 до 26")
+            elif key == "ball_radius" and (type(value) is not int or not 8 <= value <= (48 if data.get("theme", result.theme) == "createch" else 26)):
+                raise ValueError("Радиус объекта вне допустимого диапазона выбранной темы")
             elif key == "moving_goal" and type(value) is not bool:
                 raise ValueError("Некорректное значение движения лунки")
             elif key in ("goal_x", "goal_y") and (not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1):
@@ -207,8 +207,8 @@ class HoleRound:
         # into the SAME physics engine so a camera is unnecessary for preview.
         if self.demo:
             lo, hi = next((a, b) for a, b in GOAL_SIDES if a <= self.base_goal_x <= b)
-            spawn_x = min(hi - 65., max(lo + 65., self.base_goal_x + self.rng.uniform(-48., 48.)))
-            vx = self.rng.uniform(-22., 22.)
+            spawn_x = min(hi - 65., max(lo + 65., self.base_goal_x + self.rng.uniform(-140., 140.)))
+            vx = self.rng.uniform(-58., 58.)
         else:
             spawn_x, vx = SPAWN_X, 0.
         self.balls.append(Ball(self.next_id, spawn_x, 18., vx, 0., radius))
@@ -259,7 +259,7 @@ class HoleRound:
 
     def _collide_balls(self) -> None:
         # Spatial grid avoids O(n²) comparisons for the capped stream.
-        cell = 54.
+        cell = max(54., max((b.radius for b in self.balls), default=0.) * 2 + 2.)
         grid: dict[tuple[int, int], list[Ball]] = {}
         for ball in self.balls:
             x, y = int(ball.x//cell), int(ball.y//cell)
