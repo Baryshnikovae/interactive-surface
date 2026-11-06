@@ -81,6 +81,9 @@ def test_preview_and_demo_api_without_calibration(tmp_path):
             assert demo.status_code == 200
             assert demo.json()["demo"] is True
             assert client.get("/assets/createch-director.svg").status_code == 200
+            portrait = client.get("/assets/createch-director.png")
+            assert portrait.status_code == 200
+            assert portrait.content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
             assert client.post("/api/game/stop", headers=headers, json={}).json()["phase"] == "idle"
             assert client.post("/api/game/preview", json={}).status_code == 401
     finally:
@@ -108,3 +111,37 @@ def test_demo_reliably_catches_glyphs_and_respects_classic_radius():
         assert game.round.score > 0, f"Auto Demo must demonstrate actual catches. Trajectory: {observations}"
     finally:
         game.close()
+
+
+def test_demo_sticker_deflects_centre_spawn_in_real_collision_solver():
+    mode = HoleRound(GameSettings.parse({"theme": "createch", "ball_radius": 23}),
+                     random_seed=20261106, demo=True)
+    assert mode.snapshot()["demo_stickers"]
+    observed_contact = False
+    for _ in range(120 * 4):
+        mode.step(DT)
+        if any(ball.vx < -75 for ball in mode.balls):
+            observed_contact = True
+            break
+    assert observed_contact, "Demo sticker must visibly redirect the falling K."
+
+
+def test_createch_qt_renderer_draws_generated_portrait_and_sticker():
+    from PySide6.QtGui import QImage, QPainter
+    from interactive_surface.createch_render import paint_createch
+    from pathlib import Path
+    import interactive_surface
+
+    image = Path(interactive_surface.__file__).parent / "static" / "createch-director.png"
+    assert image.is_file(), "Packaged Createch portrait PNG missing"
+    frame = QImage(1600, 1000, QImage.Format.Format_ARGB32)
+    frame.fill(0)
+    p = QPainter(frame)
+    try:
+        paint_createch(p, {"phase": "playing", "demo": True,
+                           "goal": [.25,.705,31.], "balls": [[.5,.33,23.,0.,.3,37.]],
+                           "demo_stickers": [[[.43,.5],[.57,.46],[.57,.48],[.43,.52]]]},
+                      dark=True)
+    finally:
+        p.end()
+    assert frame.pixelColor(30, 500).alpha() > 0
