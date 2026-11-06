@@ -21,6 +21,7 @@ class Controller:
         self.camera = CameraService()
         self.projector = ProjectorService()
         self.store = store or Store()
+        self.theme_store = Store(self.store.path.with_name("theme-settings.json"))
         self.camera_quad = [p[:] for p in DEFAULT_CAMERA_QUAD]
         self.projector_quad = [p[:] for p in DEFAULT_PROJECTOR_QUAD]
         self.verified = False
@@ -30,7 +31,7 @@ class Controller:
         if self.saved.get("recognition"):
             self.recognition.restore(self.saved["recognition"])
         try:
-            game_settings = GameSettings.parse(self.saved.get("game", {}))
+            game_settings = GameSettings.parse({**self.saved.get("game", {}), **self.theme_store.read()})
         except ValueError:
             game_settings = GameSettings()
         self.game = GameEngine(lambda: self.recognition.state()["objects"], self.projector.publish_game,
@@ -251,16 +252,31 @@ class Controller:
             self.projector.set_mode("game")
             return result
 
+    def preview_game(self) -> dict:
+        # Visual preview is intentionally possible before camera calibration.
+        with self.lock:
+            result = self.game.preview()
+            self.projector.set_mode("game")
+            return result
+
+    def start_demo(self) -> dict:
+        # Demo uses synthetic spawning and needs no camera or recognition.
+        with self.lock:
+            result = self.game.start_demo()
+            self.projector.set_mode("game")
+            return result
+
     def stop_game(self) -> dict:
         with self.lock:
             state = self.game.stop()
-            if self.projector.status()["active"]:
-                self.projector.set_mode("ready")
+            self.projector.set_mode("ready")
             return state
 
     def configure_game(self, updates: dict) -> dict:
         with self.lock:
             state = self.game.configure(updates)
+            if "theme" in updates:
+                self.theme_store.write({"theme": state["settings"]["theme"]})
             data = self.store.read()
             if data:
                 data["game"] = state["settings"]
