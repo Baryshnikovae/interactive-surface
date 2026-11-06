@@ -20,12 +20,14 @@ SPAWN_X = 800.0
 GOAL_SIDES = ((180.0, 515.0), (1085.0, 1420.0))
 PALETTE = ("solid", "orbit", "comet")
 MODES = ("manual", "repeat", "sequence")
+THEMES = ("classic", "createch")
 AVAILABLE_GAMES = ("hole",)
 
 
 @dataclass
 class GameSettings:
     cycle_mode: str = "manual"
+    theme: str = "classic"
     visual_style: str = "neon"
     ball_design: str = "orbit"
     ball_color: str = "#70e9ff"
@@ -46,7 +48,9 @@ class GameSettings:
         for key, value in data.items():
             if key not in allowed:
                 raise ValueError(f"Неизвестная настройка: {key}")
-            if key == "cycle_mode" and value not in MODES:
+            if key == "theme" and value not in THEMES:
+                raise ValueError("Неизвестная тема оформления")
+            elif key == "cycle_mode" and value not in MODES:
                 raise ValueError("Неизвестный режим смены раундов")
             elif key == "visual_style" and value not in ("flat", "neon"):
                 raise ValueError("Неизвестный визуальный стиль")
@@ -114,9 +118,10 @@ class HoleRound:
     id = "hole"
     title = "Шарики и лунка"
 
-    def __init__(self, settings: GameSettings, random_seed: int | None = None):
+    def __init__(self, settings: GameSettings, random_seed: int | None = None, demo: bool = False):
         self.rng = random.Random(random_seed)
         self.settings = settings
+        self.demo = demo
         self.balls: list[Ball] = []
         self.obstacles: dict[int, tuple] = {}
         self.score = 0
@@ -167,6 +172,21 @@ class HoleRound:
             del self.obstacles[identity]
 
     def _goal_position(self, dt: float) -> None:
+        if self.demo:
+            # A bounded, physically plausible autopilot; never teleports the bucket.
+            lo, hi = next((a, b) for a, b in GOAL_SIDES if a <= self.base_goal_x <= b)
+            eligible = [b for b in self.balls if b.y < self.base_goal_y + 10 and b.vy >= -100]
+            if eligible:
+                def intercept(ball: Ball) -> tuple[float, float]:
+                    dy = max(0., self.base_goal_y - ball.y)
+                    t = (-ball.vy + math.sqrt(ball.vy * ball.vy + 2 * 940. * dy)) / 940.
+                    return (t, ball.x + ball.vx * t)
+                target = min(eligible, key=lambda b: intercept(b)[0])
+                desired = min(hi - 55., max(lo + 55., intercept(target)[1]))
+                shift = max(-320. * dt, min(320. * dt, desired - self.goal_x))
+                self.goal_x = min(hi - 55., max(lo + 55., self.goal_x + shift))
+            self.goal_y = self.base_goal_y
+            return
         if not self.settings.moving_goal:
             self.goal_x = self.base_goal_x
             self.goal_y = self.base_goal_y
@@ -183,8 +203,15 @@ class HoleRound:
         if len(self.balls) >= self.settings.max_balls:
             return
         radius = self.settings.ball_radius
-        # No random horizontal jitter: the goal must not catch unassisted balls.
-        self.balls.append(Ball(self.next_id, SPAWN_X, 18., 0., 0., radius))
+        # Ordinary play stays on the centre lane. Demo injects side-lane balls
+        # into the SAME physics engine so a camera is unnecessary for preview.
+        if self.demo:
+            lo, hi = next((a, b) for a, b in GOAL_SIDES if a <= self.base_goal_x <= b)
+            spawn_x = min(hi - 65., max(lo + 65., self.base_goal_x + self.rng.uniform(-48., 48.)))
+            vx = self.rng.uniform(-22., 22.)
+        else:
+            spawn_x, vx = SPAWN_X, 0.
+        self.balls.append(Ball(self.next_id, spawn_x, 18., vx, 0., radius))
         self.next_id += 1
         self.total_spawned += 1
 
@@ -273,7 +300,15 @@ class HoleRound:
             ball.x += ball.vx*dt
             ball.y += ball.vy*dt
             self._collide_rectangles(ball)
-            if (ball.x-self.goal_x)**2+(ball.y-self.goal_y)**2 <= (self.goal_radius+ball.radius*.33)**2:
+            # Createch scores only when a descending glyph enters the visible
+            # bucket opening; Classic retains its original circular capture.
+            if self.settings.theme == "createch":
+                caught = (abs(ball.x - self.goal_x) <= self.goal_radius - ball.radius*.40
+                          and self.goal_y - 3. <= ball.y <= self.goal_y + 17.
+                          and ball.vy >= 0.)
+            else:
+                caught = (ball.x-self.goal_x)**2+(ball.y-self.goal_y)**2 <= (self.goal_radius+ball.radius*.33)**2
+            if caught:
                 self.score += 1
                 self.last_hit = self.elapsed
                 continue
@@ -310,6 +345,7 @@ class GameEngine:
         self.available_games = {"hole": "Шарики и лунка"}
         self.current_game = "hole"
         self.phase = "idle"
+        self.demo = False
         self.round: HoleRound | None = None
         self.rounds = 0
         self._complete_at = 0.
@@ -328,14 +364,14 @@ class GameEngine:
     def _compose(self) -> dict:
         result = self.round.snapshot() if self.round else {"balls": [], "goal": [self.settings.goal_x, self.settings.goal_y, 45.], "score": 0, "target": self.settings.target_hits, "hits_fx": 0., "culled": 0, "spawned": 0, "obstacles": 0}
         return {**result, "game": self.current_game, "phase": self.phase, "round_number": self.rounds,
-                "settings": asdict(self.settings), "physics_fps": round(self._recent_fps, 1),
+                "settings": asdict(self.settings), "demo": self.demo, "physics_fps": round(self._recent_fps, 1),
                 "physics_ms": round(self._tick_cost_ms, 3), "updated": time.monotonic()}
 
-    def _start_locked(self, game: str = "hole") -> None:
+    def _start_locked(self, game: str = "hole", demo: bool = False) -> None:
         if game not in self.available_games:
             raise ValueError("Неизвестная игра")
         self.current_game = game
-        self.round = HoleRound(self.settings)
+        self.round = HoleRound(self.settings, random_seed=(20261106 + self.rounds) if demo else None, demo=demo)
         if not self.settings.goal_manual:
             self.round.randomize_goal(side=self.rounds % 2)
         self.phase = "playing"
@@ -346,11 +382,36 @@ class GameEngine:
 
     def start(self, game: str = "hole") -> dict:
         with self.lock:
+            self.demo = False
             self._start_locked(game)
+            return self.state()
+
+    def preview(self) -> dict:
+        """Render a frozen theme composition without starting a real round."""
+        with self.lock:
+            self.demo = False
+            self.round = HoleRound(self.settings, random_seed=42)
+            gx, gy = self.round.goal_x, self.round.goal_y
+            self.round.balls = [
+                Ball(1, 790., 175., 0., 0., self.settings.ball_radius),
+                Ball(2, 640., 345., 0., 0., self.settings.ball_radius),
+                Ball(3, gx - 20., gy - 135., 0., 0., self.settings.ball_radius),
+                Ball(4, gx + 28., gy - 235., 0., 0., self.settings.ball_radius),
+            ]
+            self.phase = "preview"
+            self._snapshot = self._compose()
+            return self.state()
+
+    def start_demo(self) -> dict:
+        """Continuously simulate real gameplay with a camera-free auto catcher."""
+        with self.lock:
+            self.demo = True
+            self._start_locked("hole", demo=True)
             return self.state()
 
     def stop(self) -> dict:
         with self.lock:
+            self.demo = False
             self.phase = "idle"
             self.round = None
             self._snapshot = self._compose()
@@ -390,15 +451,17 @@ class GameEngine:
                 if self.round.finished:
                     self.phase = "won"
                     self._complete_at = time.monotonic()
-            elif self.phase == "won" and self.round and self.settings.cycle_mode != "manual":
+            elif self.phase == "won" and self.round and (self.demo or self.settings.cycle_mode != "manual"):
                 if time.monotonic() - self._complete_at >= 2.7:
-                    if self.settings.cycle_mode == "sequence":
+                    if self.demo:
+                        next_game = "hole"
+                    elif self.settings.cycle_mode == "sequence":
                         playlist = list(self.settings.playlist)
                         pos = playlist.index(self.current_game) if self.current_game in playlist else -1
                         next_game = playlist[(pos+1) % len(playlist)]
                     else:
                         next_game = self.current_game
-                    self._start_locked(next_game)
+                    self._start_locked(next_game, demo=self.demo)
             self._snapshot = self._compose()
 
     def _loop(self) -> None:
