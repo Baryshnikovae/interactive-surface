@@ -135,7 +135,7 @@ class HoleRound:
         self.goal_y = settings.goal_y * H
         self.base_goal_x = self.goal_x
         self.base_goal_y = self.goal_y
-        self.goal_radius = 45.0
+        self.goal_radius = 31.0 if settings.theme == "createch" else 45.0
         self.last_hit = -20.
         self._goal_phase = 0.
         self.randomize_goal()
@@ -143,9 +143,9 @@ class HoleRound:
             # Demo: the *same* rectangular-collider solver as camera stickers.
             # One fixed tilted sticker redirects centre-lane falling letters
             # towards the side bucket. Without the sticker they miss.
-            right = self.base_goal_x > W / 2
-            self.base_goal_x = 1235. if right else 365.
-            self.base_goal_y = 765.
+            right = False  # art direction: portrait left, logo right in demo
+            self.base_goal_x = 400.
+            self.base_goal_y = 705.
             self.goal_x = self.base_goal_x
             self.goal_y = self.base_goal_y
             if right:
