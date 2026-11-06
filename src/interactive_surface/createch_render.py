@@ -1,119 +1,143 @@
-"""Createch visual treatment shared with the real Qt projector.
+"""Createch event projection visuals (calibrated wall coordinates, 1600×1000).
 
-Rendering only: the circles and physics remain owned by game.py.
+Visual scene is shared in design with the browser projector. Gameplay, collision
+and scoring are exclusively owned by game.py. Keep generated portrait optional
+to allow visual review independently of the deployment.
 """
 from __future__ import annotations
-
 from pathlib import Path
 import math
-import time
-
-from PySide6.QtCore import QRectF, QPointF, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPen, QPolygonF
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import (QColor, QFont, QImage, QPainter, QPainterPath,
+                          QPen, QPolygonF)
 from PySide6.QtSvg import QSvgRenderer
 
-FUCHSIA = QColor("#f629bb")
-SOFT = QColor("#ff91de")
-SVG_FILE = Path(__file__).parent / "static" / "createch-director.svg"
-_sprite = None
+PINK = QColor("#f629bb")
+SOFT = QColor("#ff90de")
+ASSET_ROOT = Path(__file__).parent / "static"
+_portrait = None
+_fallback = None
 
 
-def _director():
-    global _sprite
-    if _sprite is None:
-        _sprite = QSvgRenderer(str(SVG_FILE))
-    return _sprite
+def _sprite():
+    global _portrait, _fallback
+    if _portrait is None:
+        file = ASSET_ROOT / "createch-director.png"
+        _portrait = QImage(str(file)) if file.is_file() else QImage()
+        _fallback = QSvgRenderer(str(ASSET_ROOT / "createch-director.svg"))
+    return _portrait, _fallback
 
 
-def letter(p: QPainter, x: float, y: float, radius: float, angle: float = 0):
-    """The distinctive angular K + substantial rectangular period."""
+def _line(p, points, color, width=2):
+    p.setPen(QPen(QColor(color), width, Qt.PenStyle.SolidLine,
+                  Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath(QPointF(*points[0]))
+    for point in points[1:]:
+        path.lineTo(QPointF(*point))
+    p.drawPath(path)
+
+
+def _text(p, text, rect, size, color, weight=QFont.Weight.Bold, align=Qt.AlignmentFlag.AlignLeft):
+    p.setPen(QColor(color))
+    font = QFont("DejaVu Sans", size, weight)
+    p.setFont(font)
+    p.drawText(QRectF(*rect), align | Qt.AlignmentFlag.AlignVCenter, text)
+
+
+def _frame(p, dark):
+    p.fillRect(QRectF(0, 0, 1600, 1000), QColor("#0b0518" if dark else "#fff7fc"))
+    _line(p, [(62,25),(1538,25),(1570,57),(1570,944),(1541,976),
+              (60,976),(30,944),(30,58),(62,25)], "#f324b4", 4)
+    _line(p, [(75,94),(415,94),(467,43)], "#f629bb", 4)
+    _line(p, [(1296,43),(1520,43)], "#a82d87", 2)
+    _line(p, [(70,934),(1030,934),(1050,922),(1518,922)], "#92166c", 2)
+    _text(p, "CREATECH  /  INTERACTIVE", (82,47,550,42), 22, "#ff4fc9")
+    _text(p, "01 / INTERACTIVE PLAY", (1040,48,472,37), 16, "#c9a6c3",
+          QFont.Weight.Medium, Qt.AlignmentFlag.AlignRight)
+    _text(p, "КРЕАТЕХ.", (1000,827,515,92), 70, "#f629bb",
+          QFont.Weight.Black, Qt.AlignmentFlag.AlignRight)
+
+
+def letter(p, x, y, radius, angle=0):
     p.save()
-    p.translate(x, y)
+    p.translate(x,y)
     p.rotate(angle)
-    # Scale within existing circular collider, without affecting its behaviour.
-    k = radius / 27.
-    p.scale(k, k)
+    scale = radius / 29.
+    p.scale(scale,scale)
     p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(FUCHSIA)
-    polygon = QPolygonF([QPointF(a,b) for a,b in [
-        (-24,-23),(-11,-23),(-11,-5),(-4,-5),(12,-23),(27,-23),
-        (9,-1),(27,22),(11,22),(-3,5),(-11,5),(-11,22),(-24,22),
-        (-24,4),(-13,4),(-13,-5),(-24,-5)
-    ]])
-    p.drawPolygon(polygon)
-    p.drawRect(QRectF(17,12,13,11))
+    p.setBrush(PINK)
+    p.drawPolygon(QPolygonF([QPointF(a,b) for a,b in
+        [(-26,-23),(-13,-23),(-13,-4),(-6,-4),(10,-23),(26,-23),
+        (7,-2),(25,21),(9,21),(-5,5),(-13,5),(-13,21),(-26,21)]]))
+    # The dot is detached and visibly rectangular even at small sizes.
+    p.drawRect(QRectF(17,11,12,11))
     p.restore()
 
 
-def paint_createch(p: QPainter, snapshot: dict, dark: bool = True):
-    bg = QColor("#090613" if dark else "#fff5fc")
-    fg = QColor("#ffecfa" if dark else "#3a1535")
-    p.fillRect(QRectF(0,0,1600,1000), bg)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    p.setPen(QPen(QColor("#79205b") if dark else QColor("#e7a1d5"),2))
-    for x in range(100,1540,96):
-        p.drawLine(QPointF(x, 70),QPointF(x,78))
-    p.setPen(QPen(QColor("#f629bb"),5))
-    p.drawLine(QPointF(45,160),QPointF(45,45))
-    p.drawLine(QPointF(45,45),QPointF(240,45))
-    p.drawLine(QPointF(1360,45),QPointF(1555,45))
-    p.drawLine(QPointF(1555,45),QPointF(1555,160))
-    p.drawLine(QPointF(45,840),QPointF(45,955))
-    p.drawLine(QPointF(45,955),QPointF(500,955))
-    p.drawLine(QPointF(1130,955),QPointF(1555,955))
-    p.drawLine(QPointF(1555,955),QPointF(1555,840))
-    p.setPen(QPen(QColor("#7b235c"),1.5))
-    p.drawLine(QPointF(55,100),QPointF(1545,100))
-    p.drawLine(QPointF(55,900),QPointF(1545,900))
-    p.setPen(FUCHSIA)
-    p.setFont(QFont("DejaVu Sans",23,QFont.Weight.Bold))
-    p.drawText(QRectF(75,50,480,40),Qt.AlignmentFlag.AlignLeft,"CREATECH / INTERACTIVE")
-    p.setFont(QFont("DejaVu Sans",17,QFont.Weight.Medium))
-    p.drawText(QRectF(1230,50,290,40),Qt.AlignmentFlag.AlignRight,"01  /  PLAY")
-    p.setPen(QPen(FUCHSIA,1.2))
-    for x,y in ((65,180),(1535,180),(65,825),(1535,825)):
-        p.drawLine(QPointF(x-10,y),QPointF(x+10,y))
-        p.drawLine(QPointF(x,y-10),QPointF(x,y+10))
-    phase = snapshot.get("phase", "idle")
-    balls = snapshot.get("balls") or []
+def _actor(p, goal, hits):
+    x, y = goal[0]*1600, goal[1]*1000
+    img, fallback = _sprite()
+    w, h = 275., 366.
+    # PNG bucket rim is approximately (0.60w, 0.325h) in the full sprite.
+    rect = QRectF(x - .60*w, y - .325*h, w, h)
+    p.save()
+    if not img.isNull():
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        p.drawImage(rect, img)
+    elif fallback and fallback.isValid():
+        fallback.render(p, rect)
+    p.restore()
+    if hits:
+        p.save()
+        p.setPen(QPen(SOFT, 3))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawEllipse(QPointF(x,y+9), 35+24*hits, 14+15*hits)
+        p.restore()
+
+
+def _sticker(p, corners):
+    if not corners:
+        return
+    polygon=QPolygonF([QPointF(x*1600,y*1000) for x,y in corners])
+    p.save()
+    p.setBrush(QColor("#5b174a"))
+    p.setPen(QPen(SOFT,4))
+    p.drawPolygon(polygon)
+    for j in range(4):
+        a=polygon[j]
+        b=polygon[(j+1)%4]
+        if j==0:
+            _line(p,[(a.x(),a.y()),(b.x(),b.y())],"#fff3fd",3)
+    cx=sum(pt.x() for pt in polygon)/4.
+    cy=sum(pt.y() for pt in polygon)/4.
+    _text(p,"СТИКЕР / ОТСКОК",(cx-120,cy-70,245,35),17,"#ff7bd5")
+    p.restore()
+
+
+def paint_createch(p: QPainter, snapshot: dict, dark=True):
+    p.save()
+    _frame(p, dark)
+    phase=snapshot.get("phase","idle")
+    goal=snapshot.get("goal", [.25,.705,31.])
+    for sticker in snapshot.get("demo_stickers",()):
+        _sticker(p,sticker)
     if phase in ("playing","won","preview"):
-        gx,gy,gr = snapshot.get("goal",[.78,.72,45])
-        x,y = gx*1600., gy*1000.
-        renderer = _director()
-        if renderer.isValid():
-            # Bucket rim centre is exactly at goal_x/goal_y.
-            renderer.render(p, QRectF(x-95,y-156,190,255))
-        else:
-            p.setBrush(FUCHSIA)
-            p.drawRect(QRectF(x-43,y,86,32))
-        if snapshot.get("hits_fx", 0)>0:
-            fx=float(snapshot["hits_fx"])
-            p.setPen(QPen(SOFT,4))
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawEllipse(QPointF(x,y+10),gr+fx*26,gr+fx*26)
-    now=time.monotonic()
-    for b in balls:
-        x,y,r=b[0]*1600.,b[1]*1000.,float(b[2])
-        if -40<x<1640 and -40<y<1040:
-            letter(p,x,y,max(r,13)*1.45, math.sin(now*1.2+x*.01)*8)
-    p.setPen(fg)
-    p.setFont(QFont("DejaVu Sans",30,QFont.Weight.Bold))
-    p.drawText(QRectF(75,125,400,65),Qt.AlignmentFlag.AlignLeft,
-               f"{snapshot.get('score',0):02d} / {snapshot.get('target',5):02d}")
-    p.setPen(FUCHSIA)
-    # Bottom-right lockup, safely separated from the bucket and main playfield.
-    font=QFont("DejaVu Sans",78,QFont.Weight.Black)
-    font.setStretch(90)
-    p.setFont(font)
-    p.drawText(QRectF(865,847,650,100),Qt.AlignmentFlag.AlignRight,"КРЕАТЕХ.")
-    if phase == "preview":
-        p.setFont(QFont("DejaVu Sans",20,QFont.Weight.Bold))
-        p.drawText(QRectF(65,860,600,45),Qt.AlignmentFlag.AlignLeft,"PREVIEW  /  THEME")
+        _actor(p, goal, float(snapshot.get("hits_fx",0)))
+    for ball in snapshot.get("balls") or ():
+        x,y,r=ball[0]*1600,ball[1]*1000,float(ball[2])
+        if 120<y<940 and -25<x<1625:
+            letter(p,x,y,min(30,r),float(ball[5] if len(ball)>5 else 0))
+    fg="#ffebf9" if dark else "#421935"
+    _text(p,f"{snapshot.get('score',0):02d} / {snapshot.get('target',5):02d}",
+          (83,125,310,62),32,fg)
     if snapshot.get("demo"):
-        p.setFont(QFont("DejaVu Sans",20,QFont.Weight.Bold))
-        p.drawText(QRectF(65,860,650,45),Qt.AlignmentFlag.AlignLeft,"AUTO DEMO  /  SIMULATION")
+        _text(p,"AUTO DEMO  •  СТИКЕР ОТКЛОНЯЕТ БУКВУ",
+              (80,866,745,48),19,"#ff8bd9")
+    elif phase=="preview":
+        _text(p,"PREVIEW  •  CREATECH",(80,866,620,48),19,"#ff8bd9")
     if phase=="won":
-        p.fillRect(QRectF(450,380,700,160),QColor("#120a23"))
-        p.setPen(SOFT)
-        p.setFont(QFont("DejaVu Sans",66,QFont.Weight.Black))
-        p.drawText(QRectF(460,396,680,132),Qt.AlignmentFlag.AlignCenter,"ПОЙМАНО!")
+        p.fillRect(QRectF(485,375,630,145),QColor("#180920"))
+        _text(p,"ПОЙМАНО!",(510,380,590,128),62,"#ff67ce",
+              QFont.Weight.Black,Qt.AlignmentFlag.AlignCenter)
+    p.restore()
