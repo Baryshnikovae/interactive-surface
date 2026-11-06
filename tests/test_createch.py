@@ -85,3 +85,22 @@ def test_preview_and_demo_api_without_calibration(tmp_path):
             assert client.post("/api/game/preview", json={}).status_code == 401
     finally:
         controller.close()
+
+
+def test_demo_reliably_catches_glyphs_and_respects_classic_radius():
+    with pytest.raises(ValueError):
+        GameSettings.parse({"theme": "classic", "ball_radius": 38})
+    assert GameSettings.parse({"theme": "createch", "ball_radius": 38}).ball_radius == 38
+    game = GameEngine(lambda: [], lambda _: None,
+                      config={"theme": "createch", "ball_radius": 38, "target_hits": 20},
+                      start_worker=False)
+    try:
+        game.start_demo()
+        assert game.round.demo
+        for _ in range(120 * 22):
+            game.tick(DT)
+            if game.round.score:
+                break
+        assert game.round.score > 0, "Auto Demo must demonstrate actual bucket catches"
+    finally:
+        game.close()
