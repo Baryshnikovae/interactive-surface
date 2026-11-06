@@ -24,7 +24,7 @@ function createchPaint(map, state, dark, dpr) {
  }
  cc.fillStyle=dark?'#0b0518':'#fff7fc';cc.fillRect(0,0,gameCanvas.width,gameCanvas.height);
  path([[62,25],[1538,25],[1570,57],[1570,944],[1541,976],[60,976],[30,944],[30,58],[62,25]],pink,3.5);
- path([[75,94],[415,94],[467,43]],pink,3.2);
+ path([[75,94],[575,94],[625,43]],pink,3.2);
  path([[1296,43],[1520,43]],'#a82d87',1.5);
  path([[70,934],[1030,934],[1050,922],[1518,922]],'#92166c',1.7);
  word('CREATECH / INTERACTIVE',82,77,21,'#ff4fc9');
@@ -44,13 +44,16 @@ function createchPaint(map, state, dark, dpr) {
  }
  const goal=state.goal||[.25,.705,31.],gx=goal[0]*1600,gy=goal[1]*1000;
  if(['preview','playing','won'].includes(state.phase)){
-    const w=275,h=366,x=gx-.60*w,y=gy-.325*h;
+    const w=335,h=393,x=gx-.585*w,y=gy-.524*h;
     const a=pt(x,y),b=pt(x+w,y),c=pt(x,y+h);
     if(director.complete&&director.naturalWidth){
       cc.save();cc.imageSmoothingEnabled=false;
-      cc.transform((b[0]-a[0])/director.naturalWidth,(b[1]-a[1])/director.naturalWidth,
-        (c[0]-a[0])/director.naturalHeight,(c[1]-a[1])/director.naturalHeight,a[0],a[1]);
-      cc.drawImage(director,0,0);cc.restore();
+      cc.transform((b[0]-a[0])/w,(b[1]-a[1])/w,
+        (c[0]-a[0])/h,(c[1]-a[1])/h,a[0],a[1]);
+      if(director.src.endsWith('.svg'))cc.drawImage(director,0,0,w,h);
+      else cc.drawImage(director,director.naturalWidth*.20,0,
+        director.naturalWidth*.66,director.naturalHeight*.589,0,0,w,h);
+      cc.restore();
     }else{
       path([[gx-32,gy-5],[gx+32,gy-5],[gx+25,gy+45],[gx-25,gy+45]],pink,2,'#79045e');
     }
