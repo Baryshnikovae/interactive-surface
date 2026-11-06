@@ -139,6 +139,22 @@ class HoleRound:
         self.last_hit = -20.
         self._goal_phase = 0.
         self.randomize_goal()
+        if self.demo:
+            # Demo: the *same* rectangular-collider solver as camera stickers.
+            # One fixed tilted sticker redirects centre-lane falling letters
+            # towards the side bucket. Without the sticker they miss.
+            right = self.base_goal_x > W / 2
+            self.base_goal_x = 1235. if right else 365.
+            self.base_goal_y = 765.
+            self.goal_x = self.base_goal_x
+            self.goal_y = self.base_goal_y
+            if right:
+                surface = ((690., 492.), (910., 465.), (912., 482.), (692., 509.))
+            else:
+                surface = ((690., 465.), (910., 492.), (908., 509.), (688., 482.))
+            self.obstacles[-101] = surface
+            # Show the initial freefall, rather than instantly showing a hit.
+            self.spawn_clock = 1.65
 
     def randomize_goal(self, side: int | None = None) -> None:
         if self.settings.goal_manual:
@@ -203,12 +219,11 @@ class HoleRound:
         if len(self.balls) >= self.settings.max_balls:
             return
         radius = self.settings.ball_radius
-        # Ordinary play stays on the centre lane. Demo injects side-lane balls
-        # into the SAME physics engine so a camera is unnecessary for preview.
+        # In demo and live play, letters start in the centre lane.
+        # Only contact with a sticker redirects them toward the catcher.
         if self.demo:
-            lo, hi = next((a, b) for a, b in GOAL_SIDES if a <= self.base_goal_x <= b)
-            spawn_x = min(hi - 65., max(lo + 65., self.base_goal_x + self.rng.uniform(-140., 140.)))
-            vx = self.rng.uniform(-58., 58.)
+            spawn_x = SPAWN_X + self.rng.uniform(-8., 8.)
+            vx = self.rng.uniform(-4., 4.)
         else:
             spawn_x, vx = SPAWN_X, 0.
         self.balls.append(Ball(self.next_id, spawn_x, 18., vx, 0., radius))
@@ -288,8 +303,9 @@ class HoleRound:
         self.elapsed += dt
         self._goal_position(dt)
         self.spawn_clock += dt
-        if self.spawn_clock >= self.settings.spawn_interval:
-            self.spawn_clock -= self.settings.spawn_interval
+        spawn_period = 2.5 if self.demo else self.settings.spawn_interval
+        if self.spawn_clock >= spawn_period:
+            self.spawn_clock -= spawn_period
             self._spawn()
         alive = []
         for ball in self.balls:
@@ -324,7 +340,8 @@ class HoleRound:
 
     def snapshot(self) -> dict:
         return {
-            "balls": [[round(b.x/W, 5), round(b.y/H, 5), b.radius, round(b.vx/W, 4), round(b.vy/H, 4)] for b in self.balls],
+            "balls": [[round(b.x/W, 5), round(b.y/H, 5), b.radius, round(b.vx/W, 4), round(b.vy/H, 4),
+                       round((b.id * 137.5 + b.age * 23.) % 360., 1)] for b in self.balls],
             "goal": [round(self.goal_x/W, 5), round(self.goal_y/H, 5), self.goal_radius],
             "score": self.score,
             "target": self.settings.target_hits,
@@ -332,6 +349,10 @@ class HoleRound:
             "culled": self.total_culled,
             "spawned": self.total_spawned,
             "obstacles": len(self.obstacles),
+            "demo_stickers": [
+                [[round(x/W, 5), round(y/H, 5)] for x,y in polygon]
+                for identity, polygon in self.obstacles.items() if self.demo and identity < 0
+            ],
         }
 
 
@@ -479,7 +500,7 @@ class GameEngine:
                     try:
                         objects = self.objects_provider()
                         with self.lock:
-                            if self.round:
+                            if self.round and not self.demo:
                                 self.round.set_obstacles(objects)
                     except (ValueError, KeyError, TypeError):
                         pass
