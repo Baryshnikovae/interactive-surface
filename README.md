@@ -260,3 +260,35 @@ browser visualization; real projection remains calibrated separately.
 Createch switches to a larger physical ball radius (38 by default) so K.
 glyphs are readable while collisions still use their corresponding circles.
 Classic restores the previous Classic radius when switched back in the UI.
+
+
+### Createch visual redesign and interaction demo (November 2026)
+
+The Createch projection is composed by `createch_render.py` for actual Qt fullscreen
+projection and by the matching canvas renderer in `static/virtual.html`. The
+transparent portrait asset `static/createch-director.png` is included in the
+Python package. The renderer crops to the upper body to make the face readable
+and anchors the bucket opening to the existing catch coordinates; the SVG file
+is now only a fallback.
+
+The small angular `К.` objects spawn in the **centre lane** in both normal
+play and Auto Demo. Each glyph has a deterministic orientation; collision still
+uses real circular ball physics. Normal play uses the camera-recognized physical
+stickers to redirect them. In Auto Demo, one visible slanted synthetic sticker
+uses the exact same rectangle collision solver and deflects falling letters
+towards the moving left-side bucket. The bucket does not attract letters:
+interception is restricted by finite movement speed and bucket opening.
+
+For a hardware-free test:
+1. Open `http://127.0.0.1:8765/games` from the same computer.
+2. Select Createch, click **Preview Theme** or **Auto Demo**.
+3. The full scene appears inside the operator page. Use the link **Открыть
+   виртуальный проектор** for a fullscreen viewport. On loopback, the virtual
+   viewer acquires the existing local operator session without scanning a QR.
+4. The `Classic` theme remains available with the original visuals and physics.
+
+The CI pipeline additionally checks the synthetic sticker bounce and uploads
+an offscreen Qt-rendered PNG named `createch-projector-preview` to each
+Linux Actions run. That PNG is an actual projector-renderer output, not
+a concept illustration. Physical camera, screen warp and legibility require
+an on-site test before public operation.
