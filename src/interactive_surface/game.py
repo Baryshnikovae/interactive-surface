@@ -149,9 +149,9 @@ class HoleRound:
             self.goal_x = self.base_goal_x
             self.goal_y = self.base_goal_y
             if right:
-                surface = ((690., 492.), (910., 465.), (912., 482.), (692., 509.))
+                surface = ((690., 465.), (910., 500.), (908., 517.), (688., 482.))
             else:
-                surface = ((690., 465.), (910., 492.), (908., 509.), (688., 482.))
+                surface = ((690., 500.), (910., 465.), (912., 482.), (692., 517.))
             self.obstacles[-101] = surface
             # Show the initial freefall, rather than instantly showing a hit.
             self.spawn_clock = 1.65
