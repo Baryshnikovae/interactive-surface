@@ -56,3 +56,32 @@ def test_classic_original_goal_collision():
     r.balls = [Ball(10, r.goal_x, r.goal_y, 0, 0, 14)]
     r.step(DT)
     assert r.score == 1
+
+
+def test_preview_and_demo_api_without_calibration(tmp_path):
+    from fastapi.testclient import TestClient
+    from interactive_surface.controller import Controller
+    from interactive_surface.storage import Store
+    from interactive_surface.web import create_app
+
+    controller = Controller(Store(tmp_path / "profile.json"))
+    headers = {"X-Control-Token": "createch-test"}
+    try:
+        with TestClient(create_app(controller=controller, token="createch-test")) as client:
+            settings = client.post("/api/game/settings", headers=headers,
+                                   json={"changes": {"theme": "createch"}})
+            assert settings.status_code == 200
+            assert settings.json()["settings"]["theme"] == "createch"
+            assert controller.theme_store.read()["theme"] == "createch"
+            preview = client.post("/api/game/preview", headers=headers, json={})
+            assert preview.status_code == 200
+            assert preview.json()["phase"] == "preview"
+            assert client.get("/api/projector/visual", headers=headers).json()["game"]["phase"] == "preview"
+            demo = client.post("/api/game/demo/start", headers=headers, json={})
+            assert demo.status_code == 200
+            assert demo.json()["demo"] is True
+            assert client.get("/assets/createch-director.svg").status_code == 200
+            assert client.post("/api/game/stop", headers=headers, json={}).json()["phase"] == "idle"
+            assert client.post("/api/game/preview", json={}).status_code == 401
+    finally:
+        controller.close()
