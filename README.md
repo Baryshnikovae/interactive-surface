@@ -246,3 +246,17 @@ should be visually approved against the director reference before an event.
 **Safety:** Preview / Auto Demo are for appearance testing. Neither
 qualifies the camera, real-world mapping, collision alignment on physical
 markers, nor the actual projector. Test hardware on-site before use.
+
+### Createch live visual check (no projector required)
+
+The **/games** page now embeds the exact browser-side scene in its left-hand
+playfield when Createch is selected. The director, bucket, frame and glyphs
+appear there, not merely on the separate projector page. `Preview Theme`
+freezes a composition and `Auto Demo` runs the actual physics/autocatcher.
+The full-size browser scene is available at
+`http://127.0.0.1:8765/virtual-projector?showcase=1` without calibrated hardware.
+In this showcase URL the scene uses a full-viewport projection quad only for
+browser visualization; real projection remains calibrated separately.
+Createch switches to a larger physical ball radius (38 by default) so K.
+glyphs are readable while collisions still use their corresponding circles.
+Classic restores the previous Classic radius when switched back in the UI.
