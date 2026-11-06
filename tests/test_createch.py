@@ -127,7 +127,10 @@ def test_demo_sticker_deflects_centre_spawn_in_real_collision_solver():
 
 
 def test_createch_qt_renderer_draws_generated_portrait_and_sticker():
-    from PySide6.QtGui import QImage, QPainter
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtGui import QGuiApplication, QImage, QPainter
+    app = QGuiApplication.instance() or QGuiApplication([])
     from interactive_surface.createch_render import paint_createch
     from pathlib import Path
     import interactive_surface
