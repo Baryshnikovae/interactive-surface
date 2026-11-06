@@ -144,14 +144,14 @@ class HoleRound:
             # One fixed tilted sticker redirects centre-lane falling letters
             # towards the side bucket. Without the sticker they miss.
             right = False  # art direction: portrait left, logo right in demo
-            self.base_goal_x = 400.
-            self.base_goal_y = 705.
+            self.base_goal_x = 425.
+            self.base_goal_y = 710.
             self.goal_x = self.base_goal_x
             self.goal_y = self.base_goal_y
             if right:
                 surface = ((690., 465.), (910., 500.), (908., 517.), (688., 482.))
             else:
-                surface = ((690., 500.), (910., 465.), (912., 482.), (692., 517.))
+                surface = ((690., 502.), (910., 462.), (912., 479.), (692., 519.))
             self.obstacles[-101] = surface
             # Show the initial freefall, rather than instantly showing a hit.
             self.spawn_clock = 1.65
@@ -393,8 +393,9 @@ class GameEngine:
             raise ValueError("Неизвестная игра")
         self.current_game = game
         self.round = HoleRound(self.settings, random_seed=(20261106 + self.rounds) if demo else None, demo=demo)
-        if not self.settings.goal_manual:
-            self.round.randomize_goal(side=self.rounds % 2)
+        if not self.settings.goal_manual and not demo:
+            # Keep Createch's actor left of the bottom-right wordmark.
+            self.round.randomize_goal(side=0 if self.settings.theme == "createch" else self.rounds % 2)
         self.phase = "playing"
         self.rounds += 1
         self._complete_at = 0.
@@ -448,6 +449,7 @@ class GameEngine:
             self.settings = new
             if self.round:
                 self.round.settings = new
+                self.round.goal_radius = 31. if new.theme == "createch" else 45.
                 # The manual position is immediately effective when movement is off.
                 if "goal_x" in updates or "goal_y" in updates or "goal_manual" in updates:
                     if "goal_x" in updates or "goal_y" in updates:
