@@ -220,3 +220,29 @@ sh start.sh
 ```
 
 Local calibration, colour and game settings are stored outside Git in `~/.config/interactive-surface/calibration.json` by default. Back this file up before resetting the installation. False positives whose HSV values are essentially identical to the target colour cannot always be separated by colour alone; avoid matching colours in clothing, or use controlled lighting and the red exclusion samples.
+
+
+## Createch visual theme and automatic demo
+
+The game operator page at **/games** has a **Theme** selector (Classic / Createch).
+Classic preserves the original balls and hole. Createch uses a fuchsia frame,
+heavy `КРЕАТЕХ.` wordmark, falling angular `К.` glyphs, and a stylized pixel-art
+director with a magenta catching bucket. Physics still uses circular ball
+colliders; the theme only changes visuals and the bucket capture condition.
+
+**Preview Theme** shows a frozen composition. **Auto Demo** uses the same
+120 Hz game engine and simulates falling glyphs and a bounded, moving
+auto-catcher without needing a camera, colour learning, or calibration.
+Use **Выйти из просмотра** to stop. The virtual projector lives at
+`/virtual-projector`; open it in another browser tab to view the complete
+scene. On a real projector, the same theme is painted by Qt, including
+the installed `static/createch-director.svg` sprite.
+
+The selected theme persists in `theme-settings.json` beside the local
+calibration profile, even when the calibration profile is not created yet.
+The SVG sprite is an original editable pixel-art interpretation and
+should be visually approved against the director reference before an event.
+
+**Safety:** Preview / Auto Demo are for appearance testing. Neither
+qualifies the camera, real-world mapping, collision alignment on physical
+markers, nor the actual projector. Test hardware on-site before use.
