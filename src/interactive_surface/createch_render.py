@@ -78,16 +78,15 @@ def letter(p, x, y, radius, angle=0):
 def _actor(p, goal, hits):
     x, y = goal[0]*1600, goal[1]*1000
     img, fallback = _sprite()
-    # Crop the upper-body portrait rather than squeezing an entire
-    # full-height sprite into the playfield. Source fractions preserve
-    # original aspect ratio and make the face readable on a projection.
-    w, h = 335., 393.
-    rect = QRectF(x - .585*w, y - .524*h, w, h)
+    # The selected user's original transparent portrait is stored as a
+    # high-resolution *upper-body* crop; render smaller than before and keep
+    # the real bucket opening aligned with the physics capture point.
+    w, h = 205., 276.
+    rect = QRectF(x - .71*w, y - .53*h, w, h)
     p.save()
     if not img.isNull():
-        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-        p.drawImage(rect, img, QRectF(img.width()*.20, 0,
-                                      img.width()*.66, img.height()*.589))
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        p.drawImage(rect, img)
     elif fallback and fallback.isValid():
         fallback.render(p, rect)
     p.restore()
