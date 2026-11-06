@@ -139,22 +139,45 @@ class HoleRound:
         self.last_hit = -20.
         self._goal_phase = 0.
         self.randomize_goal()
-        if self.demo:
-            # Demo: the *same* rectangular-collider solver as camera stickers.
-            # One fixed tilted sticker redirects centre-lane falling letters
-            # towards the side bucket. Without the sticker they miss.
-            right = False  # art direction: portrait left, logo right in demo
+        if self.demo and self.settings.theme == "createch":
+            # A real-sized demonstration sticker is placed in the same physics
+            # obstacle collection as the detected physical stickers.
+            # The catcher is fixed to the side lane; it does not follow balls.
             self.base_goal_x = 425.
-            self.base_goal_y = 710.
-            self.goal_x = self.base_goal_x
-            self.goal_y = self.base_goal_y
-            if right:
-                surface = ((690., 465.), (910., 500.), (908., 517.), (688., 482.))
-            else:
-                surface = ((690., 502.), (910., 462.), (912., 479.), (692., 519.))
-            self.obstacles[-101] = surface
-            # Show the initial freefall, rather than instantly showing a hit.
-            self.spawn_clock = 1.65
+            self.base_goal_y = 720.
+            self._goal_phase = 0.
+            self._update_demo_sticker()
+            self._goal_position(0.)
+
+    @staticmethod
+    def _sticker_corners(cx: float, cy: float, angle_deg: float) -> tuple:
+        """Small, camera-like 112×28 sticker rotated about its centre."""
+        a = math.radians(angle_deg)
+        ca, sa = math.cos(a), math.sin(a)
+        return tuple((cx + xx*ca-yy*sa, cy + xx*sa+yy*ca)
+                     for xx,yy in ((-56.,-14.),(56.,-14.),(56.,14.),(-56.,14.)))
+
+    def _update_demo_sticker(self) -> None:
+        """Show a miss first, then turn one small sticker toward the bucket.
+
+        Angle timing is deterministic, but collisions are always solved by
+        _collide_rectangles, the real sticker/hand collision path.
+        """
+        phase = self.elapsed % 13.
+        if phase < 3.:
+            angle = 13.  # sends letters right / missed catch
+        elif phase < 4.:
+            blend = (phase - 3.)**2 * (3. - 2.*(phase - 3.))
+            angle = 13. - 63.*blend
+        elif phase < 11.:
+            angle = -50.  # sends letters towards the LEFT receiver
+        elif phase < 12.:
+            blend = (phase - 11.)**2 * (3. - 2.*(phase - 11.))
+            angle = -50. + 63.*blend
+        else:
+            angle = 13.
+        self.demo_angle = angle
+        self.obstacles[-101] = self._sticker_corners(800.,520.,angle)
 
     def randomize_goal(self, side: int | None = None) -> None:
         if self.settings.goal_manual:
@@ -188,21 +211,6 @@ class HoleRound:
             del self.obstacles[identity]
 
     def _goal_position(self, dt: float) -> None:
-        if self.demo:
-            # A bounded, physically plausible autopilot; never teleports the bucket.
-            lo, hi = next((a, b) for a, b in GOAL_SIDES if a <= self.base_goal_x <= b)
-            eligible = [b for b in self.balls if b.y < self.base_goal_y + 10 and b.vy >= -100]
-            if eligible:
-                def intercept(ball: Ball) -> tuple[float, float]:
-                    dy = max(0., self.base_goal_y - ball.y)
-                    t = (-ball.vy + math.sqrt(ball.vy * ball.vy + 2 * 940. * dy)) / 940.
-                    return (t, ball.x + ball.vx * t)
-                target = min(eligible, key=lambda b: intercept(b)[0])
-                desired = min(hi - 55., max(lo + 55., intercept(target)[1]))
-                shift = max(-320. * dt, min(320. * dt, desired - self.goal_x))
-                self.goal_x = min(hi - 55., max(lo + 55., self.goal_x + shift))
-            self.goal_y = self.base_goal_y
-            return
         if not self.settings.moving_goal:
             self.goal_x = self.base_goal_x
             self.goal_y = self.base_goal_y
@@ -210,8 +218,11 @@ class HoleRound:
         self._goal_phase += dt * .75
         base_x, base_y = self.base_goal_x, self.base_goal_y
         lo, hi = next((lo, hi) for lo, hi in GOAL_SIDES if lo <= base_x <= hi)
-        amplitude_x = min(75., base_x-lo, hi-base_x)
-        amplitude_y = min(80., base_y-540., 890.-base_y)
+        # Demo and normal gameplay have the same autonomous goal motion.
+        # Demo amplitude is small: the PLAYER/STICKER must aim; the bucket
+        # NEVER pursues the stream.
+        amplitude_x = min(22. if self.demo else 75., base_x-lo, hi-base_x)
+        amplitude_y = min(12. if self.demo else 80., base_y-540., 890.-base_y)
         self.goal_x = base_x + amplitude_x * math.sin(self._goal_phase)
         self.goal_y = base_y + amplitude_y * math.sin(self._goal_phase*1.3 + .8)
 
@@ -219,13 +230,9 @@ class HoleRound:
         if len(self.balls) >= self.settings.max_balls:
             return
         radius = self.settings.ball_radius
-        # In demo and live play, letters start in the centre lane.
-        # Only contact with a sticker redirects them toward the catcher.
-        if self.demo:
-            spawn_x = SPAWN_X + self.rng.uniform(-8., 8.)
-            vx = self.rng.uniform(-4., 4.)
-        else:
-            spawn_x, vx = SPAWN_X, 0.
+        # Identical vertical centre-lane stream in Classic, Createch and demo.
+        # No fabricated sideways velocity to guarantee a catch.
+        spawn_x, vx = SPAWN_X, 0.
         self.balls.append(Ball(self.next_id, spawn_x, 18., vx, 0., radius))
         self.next_id += 1
         self.total_spawned += 1
@@ -302,8 +309,11 @@ class HoleRound:
             return
         self.elapsed += dt
         self._goal_position(dt)
+        if self.demo and self.settings.theme == "createch":
+            self._update_demo_sticker()
         self.spawn_clock += dt
-        spawn_period = 2.5 if self.demo else self.settings.spawn_interval
+        # Demo must show the same dense stream as ordinary gameplay.
+        spawn_period = self.settings.spawn_interval
         if self.spawn_clock >= spawn_period:
             self.spawn_clock -= spawn_period
             self._spawn()
@@ -353,6 +363,7 @@ class HoleRound:
                 [[round(x/W, 5), round(y/H, 5)] for x,y in polygon]
                 for identity, polygon in self.obstacles.items() if self.demo and identity < 0
             ],
+            "demo_sticker_angle": round(getattr(self, "demo_angle", 0.), 1),
         }
 
 
@@ -413,6 +424,10 @@ class GameEngine:
         with self.lock:
             self.demo = False
             self.round = HoleRound(self.settings, random_seed=42)
+            if self.settings.theme == "createch":
+                self.round.base_goal_x = 425.
+                self.round.base_goal_y = 720.
+                self.round._goal_position(0.)
             gx, gy = self.round.goal_x, self.round.goal_y
             self.round.balls = [
                 Ball(1, 790., 175., 0., 0., self.settings.ball_radius),
