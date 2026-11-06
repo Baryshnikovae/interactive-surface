@@ -83,7 +83,7 @@ def test_preview_and_demo_api_without_calibration(tmp_path):
             assert client.get("/assets/createch-director.svg").status_code == 200
             portrait = client.get("/assets/createch-director.png")
             assert portrait.status_code == 200
-            assert portrait.content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+            assert portrait.content.startswith(b"\x89PNG\r\n\x1a\n")
             assert client.post("/api/game/stop", headers=headers, json={}).json()["phase"] == "idle"
             assert client.post("/api/game/preview", json={}).status_code == 401
     finally:
