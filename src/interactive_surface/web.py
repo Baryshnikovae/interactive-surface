@@ -270,6 +270,14 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
         except ValueError as exc:
             raise HTTPException(400,str(exc)) from exc
 
+    @app.post("/api/game/preview",dependencies=[Depends(authorized)])
+    def game_preview():
+        return c.preview_game()
+
+    @app.post("/api/game/demo/start",dependencies=[Depends(authorized)])
+    def game_demo_start():
+        return c.start_demo()
+
     @app.post("/api/game/stop",dependencies=[Depends(authorized)])
     def game_stop():
         return c.stop_game()
