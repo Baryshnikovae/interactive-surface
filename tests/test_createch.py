@@ -92,7 +92,7 @@ def test_demo_reliably_catches_glyphs_and_respects_classic_radius():
         GameSettings.parse({"theme": "classic", "ball_radius": 38})
     assert GameSettings.parse({"theme": "createch", "ball_radius": 38}).ball_radius == 38
     game = GameEngine(lambda: [], lambda _: None,
-                      config={"theme": "createch", "ball_radius": 38, "target_hits": 20},
+                      config={"theme": "createch", "ball_radius": 23, "target_hits": 20},
                       start_worker=False)
     try:
         game.start_demo()
