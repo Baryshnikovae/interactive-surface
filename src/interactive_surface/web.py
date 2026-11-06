@@ -109,6 +109,10 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     def virtual() -> FileResponse:
         return FileResponse(VIRTUAL_PAGE, media_type="text/html")
 
+    @app.get("/assets/createch-director.svg", include_in_schema=False)
+    def createch_sprite() -> FileResponse:
+        return FileResponse(PAGE.parent / "createch-director.svg", media_type="image/svg+xml")
+
     @app.get("/health")
     def health():
         return {"status":"ok"}
