@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+import math
 
 from interactive_surface.game import Ball, DT, GameEngine, GameSettings, HoleRound
 
@@ -118,7 +119,7 @@ def test_demo_sticker_deflects_centre_spawn_in_real_collision_solver():
                      random_seed=20261106, demo=True)
     assert mode.snapshot()["demo_stickers"]
     observed_contact = False
-    for _ in range(120 * 4):
+    for _ in range(120 * 8):
         mode.step(DT)
         if any(ball.vx < -75 for ball in mode.balls):
             observed_contact = True
@@ -148,3 +149,24 @@ def test_createch_qt_renderer_draws_generated_portrait_and_sticker():
     finally:
         p.end()
     assert frame.pixelColor(30, 500).alpha() > 0
+
+
+def test_autodemo_is_not_an_aimbot_and_sticker_rotates():
+    settings = GameSettings.parse({"theme": "createch", "moving_goal": True,
+                                   "spawn_interval": .42, "target_hits": 50})
+    game = HoleRound(settings, random_seed=20261106, demo=True)
+    assert abs(game.demo_angle - 13) < 0.1
+    sticker_width = math.dist(game.obstacles[-101][0],game.obstacles[-101][1])
+    assert 108 <= sticker_width <= 115
+    assert game.snapshot()["demo_stickers"]
+    initial_base = game.base_goal_x
+    goal_positions=[]
+    for i in range(120 * 10):
+        game.step(DT)
+        if i % 60 == 0:
+            goal_positions.append(game.goal_x)
+    assert game.total_spawned >= 18, "Demo must have a continuous dense vertical stream"
+    assert max(goal_positions)-min(goal_positions) <= 45, "Receiver must only drift, not chase"
+    assert abs(game.base_goal_x-initial_base)<.01
+    assert -50.1 <= game.demo_angle <= -49.9, "Sticker must visibly rotate toward target"
+    assert all(b.radius==settings.ball_radius for b in game.balls)
