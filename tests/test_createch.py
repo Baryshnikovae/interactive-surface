@@ -97,10 +97,14 @@ def test_demo_reliably_catches_glyphs_and_respects_classic_radius():
     try:
         game.start_demo()
         assert game.round.demo
-        for _ in range(120 * 22):
+        observations = []
+        for i in range(120 * 22):
             game.tick(DT)
+            if i % 120 == 0 and game.round.balls:
+                ball = game.round.balls[0]
+                observations.append((round(ball.x), round(ball.y),round(ball.vx),round(ball.vy), round(game.round.goal_x)))
             if game.round.score:
                 break
-        assert game.round.score > 0, "Auto Demo must demonstrate actual bucket catches"
+        assert game.round.score > 0, f"Auto Demo must demonstrate actual catches. Trajectory: {observations}"
     finally:
         game.close()
