@@ -23,7 +23,7 @@ text('CREATECH / INTERACTIVE',75,87,23,pink);
 text('01 / PLAY',1510,87,18,pink,'700','right');
 const [cx,cy]=pt(1480,935);text('КРЕАТЕХ.',1515,935,74,pink,'900','right');
 const goal=state.goal||[.78,.72,45],gx=goal[0]*1600,gy=goal[1]*1000;
-if(['playing','won','preview'].includes(state.phase)){
+{
 const p0=pt(gx-95,gy-156),px=pt(gx+95,gy-156),py=pt(gx-95,gy+99);
 if(director.complete&&director.naturalWidth){
 cc.save();cc.transform((px[0]-p0[0])/320,(px[1]-p0[1])/320,(py[0]-p0[0])/430,(py[1]-p0[1])/430,p0[0],p0[1]);cc.drawImage(director,0,0,320,430);cc.restore()
@@ -46,5 +46,23 @@ text('ПОЙМАНО!',800,490,67,pink,'900','center');
 }
 function animateGame(){if(gameVisual){const s=gameVisual.game||{},a=s.settings||{},quad=gameVisual.quad;const rw=window.innerWidth,rh=window.innerHeight,dpr=Math.min(2,window.devicePixelRatio||1);const nw=Math.round(rw*dpr),nh=Math.round(rh*dpr);if(gameCanvas.width!==nw||gameCanvas.height!==nh){gameCanvas.width=nw;gameCanvas.height=nh}gtx.fillStyle=gameVisual.background==='white'?'#fff':'#000';gtx.fillRect(0,0,nw,nh);if(quad&&s.phase){const map=projectorMap(quad),dark=gameVisual.background!=='white',accent=dark?'#998aff':'#6d43a3',color=a.ball_color||'#70e9ff';if(a.theme==='createch'){createchPaint(map,s,dark,dpr);requestAnimationFrame(animateGame);return;}if(s.phase==='playing'||s.phase==='won'){const goal=s.goal||[.78,.72,45];warpedRing(map,goal[0],goal[1],goal[2]*1.14,dark?'#191127':'#eae3ff',accent,Math.max(2,dpr*4));warpedRing(map,goal[0],goal[1],goal[2]*.61,null,dark?'#c5bfff':'#705aa6',Math.max(1,dpr*2))}const seconds=Math.min(.035,Math.max(0,(performance.now()-gameReceived)/1000));for(const b of (s.balls||[])){const x=b[0]+b[3]*seconds,y=b[1]+b[4]*seconds,r=b[2];warpedRing(map,x,y,r,color,a.visual_style==='flat'?(dark?'#fff':'#1a3650'):color,Math.max(1,dpr));if(a.ball_design==='orbit')warpedRing(map,x,y,r*.58,null,'#fff',Math.max(1,dpr));if(a.ball_design==='comet'){const [px,py]=map(x,y),[qx,qy]=map(x-b[3]*.03,y-b[4]*.03);gtx.strokeStyle=color;gtx.lineWidth=3*dpr;gtx.beginPath();gtx.moveTo(px,py);gtx.lineTo(qx,qy);gtx.stroke()}}if(s.phase==='playing'){const [px,py]=map(.03,.06);gtx.fillStyle=dark?'#eff':'#234';gtx.font='bold '+Math.max(16,27*dpr)+'px system-ui';gtx.fillText(s.score+' / '+s.target,px,py)}if(s.phase==='won'){const [px,py]=map(.33,.5);gtx.fillStyle=dark?'#dbf8ff':'#243654';gtx.font='bold '+Math.max(24,60*dpr)+'px system-ui';gtx.fillText('ОТЛИЧНО!',px,py)}}}requestAnimationFrame(animateGame)}requestAnimationFrame(animateGame);
 
-async function update(){try{const r=await fetch('/api/projector/visual',{headers:{'X-Control-Token':token}});if(r.ok)draw(await r.json());else board.innerHTML='<text x="100" y="100">Нет доступа — откройте QR</text>'}catch{}}update();setInterval(update,130);
+async function update(){try{
+const headers={'X-Control-Token':token};
+const response=await fetch('/api/projector/visual',{headers});
+if(!response.ok){board.innerHTML='<text x="100" y="100">Нет доступа — откройте QR</text>';return}
+const projection=await response.json();
+if(params.has('showcase')){
+  const gameResponse=await fetch('/api/game/state',{headers});
+  if(!gameResponse.ok)return;
+  const state=await gameResponse.json();
+  // A full-bleed, calibration-independent composition for the operator.
+  // This affects ONLY the browser preview: hardware still uses the real quad.
+  if(state.phase==='idle'&&state.settings?.theme==='createch'){
+    state.phase='preview';
+    state.balls=[[.31,.23,24,0,0],[.62,.31,24,0,0],[.44,.48,24,0,0]];
+  }
+  draw({...projection,mode:'game',quad:[[0,0],[1,0],[1,1],[0,1]],game:state});
+}else draw(projection);
+}catch(error){console.warn('Projector preview update failed',error)}
+}update();setInterval(update,130);
 </script></body></html>
