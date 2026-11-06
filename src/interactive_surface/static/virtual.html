@@ -7,7 +7,7 @@ function warpedRing(map,x,y,r,fill,stroke,width){gtx.beginPath();for(let i=0;i<=
 const director = new Image();
 director.onerror = () => {if(!director.src.endsWith('.svg'))director.src='/assets/createch-director.svg'};
 director.src='/assets/createch-director.png';
-if(params.has('showcase'))document.body.classList.add('showcase');
+if(params.has('showcase')){document.body.classList.add('showcase');document.querySelector('.tip').style.display='none'}
 
 function createchPaint(map, state, dark, dpr) {
  const cc=gtx, pink='#f629bb', soft='#ff90de';
@@ -82,7 +82,8 @@ if(params.has('showcase')){
   // This affects ONLY the browser preview: hardware still uses the real quad.
   if(state.phase==='idle'&&state.settings?.theme==='createch'){
     state.phase='preview';
-    state.balls=[[.31,.23,24,0,0],[.62,.31,24,0,0],[.44,.48,24,0,0]];
+    state.goal=[.25,.705,31];
+    state.balls=[[.43,.28,23,0,0,15],[.57,.47,23,0,0,90],[.37,.39,23,0,0,230]];
   }
   draw({...projection,mode:'game',quad:[[0,0],[1,0],[1,1],[0,1]],game:state});
 }else draw(projection);
