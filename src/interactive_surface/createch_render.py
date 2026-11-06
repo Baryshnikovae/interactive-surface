@@ -49,7 +49,7 @@ def _frame(p, dark):
     p.fillRect(QRectF(0, 0, 1600, 1000), QColor("#0b0518" if dark else "#fff7fc"))
     _line(p, [(62,25),(1538,25),(1570,57),(1570,944),(1541,976),
               (60,976),(30,944),(30,58),(62,25)], "#f324b4", 4)
-    _line(p, [(75,94),(415,94),(467,43)], "#f629bb", 4)
+    _line(p, [(75,94),(575,94),(625,43)], "#f629bb", 4)
     _line(p, [(1296,43),(1520,43)], "#a82d87", 2)
     _line(p, [(70,934),(1030,934),(1050,922),(1518,922)], "#92166c", 2)
     _text(p, "CREATECH  /  INTERACTIVE", (82,47,550,42), 22, "#ff4fc9")
@@ -78,13 +78,16 @@ def letter(p, x, y, radius, angle=0):
 def _actor(p, goal, hits):
     x, y = goal[0]*1600, goal[1]*1000
     img, fallback = _sprite()
-    w, h = 275., 366.
-    # PNG bucket rim is approximately (0.60w, 0.325h) in the full sprite.
-    rect = QRectF(x - .60*w, y - .325*h, w, h)
+    # Crop the upper-body portrait rather than squeezing an entire
+    # full-height sprite into the playfield. Source fractions preserve
+    # original aspect ratio and make the face readable on a projection.
+    w, h = 335., 393.
+    rect = QRectF(x - .585*w, y - .524*h, w, h)
     p.save()
     if not img.isNull():
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-        p.drawImage(rect, img)
+        p.drawImage(rect, img, QRectF(img.width()*.20, 0,
+                                      img.width()*.66, img.height()*.589))
     elif fallback and fallback.isValid():
         fallback.render(p, rect)
     p.restore()
