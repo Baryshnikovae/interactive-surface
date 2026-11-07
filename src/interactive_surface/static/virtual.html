@@ -88,7 +88,7 @@ if(params.has('showcase')){
   if(state.phase==='idle'&&state.settings?.theme==='createch'){
     state.phase='preview';
     state.goal=[.25,.705,31];
-    state.balls=[[.43,.28,23,0,0,15],[.57,.47,23,0,0,90],[.37,.39,23,0,0,230]];
+    state.balls=[[.43,.28,19,0,0,15],[.57,.47,19,0,0,90],[.37,.39,19,0,0,230]];
   }
   draw({...projection,mode:'game',quad:[[0,0],[1,0],[1,1],[0,1]],game:state});
 }else draw(projection);
