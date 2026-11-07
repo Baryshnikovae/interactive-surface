@@ -109,6 +109,13 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     def virtual() -> FileResponse:
         return FileResponse(VIRTUAL_PAGE, media_type="text/html")
 
+    @app.get("/assets/createch-director-original.png", include_in_schema=False)
+    def createch_portrait_original() -> FileResponse:
+        file = PAGE.parent / "createch-director-original.png"
+        if not file.is_file():
+            raise HTTPException(404, "Original Createch portrait is not installed")
+        return FileResponse(file, media_type="image/png")
+
     @app.get("/assets/createch-director.png", include_in_schema=False)
     def createch_portrait() -> FileResponse:
         file = PAGE.parent / "createch-director.png"
