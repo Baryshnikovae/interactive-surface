@@ -143,8 +143,12 @@ def paint_createch(p: QPainter, snapshot: dict, dark=True):
     _text(p,f"{snapshot.get('score',0):02d} / {snapshot.get('target',5):02d}",
           (83,125,310,62),32,fg)
     if snapshot.get("demo"):
-        _text(p,"AUTO DEMO  •  ПОВЕРНИ СТИКЕР → ПОПАДИ В ВЕДРО",
-              (1000,107,520,45),18,"#ff8bd9",QFont.Weight.Bold,Qt.AlignmentFlag.AlignRight)
+        stages = {"miss": "01 / СТИКЕР ПОВЁРНУТ НЕВЕРНО",
+                  "turn": "02 / ПОВОРАЧИВАЕМ СТИКЕР",
+                  "catch": "03 / БУКВЫ ОТСКАКИВАЮТ В ВЕДРО",
+                  "return": "04 / МЕНЯЕМ УГОЛ"}
+        _text(p,stages.get(snapshot.get("demo_stage"),"AUTO DEMO / СТИКЕР"),
+              (915,107,605,45),19,"#ff8bd9",QFont.Weight.Bold,Qt.AlignmentFlag.AlignRight)
     elif phase=="preview":
         _text(p,"PREVIEW  •  CREATECH",(1010,107,505,45),18,"#ff8bd9",QFont.Weight.Bold,Qt.AlignmentFlag.AlignRight)
     if phase=="won":
