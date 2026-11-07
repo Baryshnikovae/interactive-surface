@@ -34,7 +34,7 @@ function createchPaint(map, state, dark, dpr) {
  word('01 / INTERACTIVE PLAY',1513,75,16,'#c9a6c3','right','500');
  word('КРЕАТЕХ.',1515,902,70,pink,'right','900');
  word(String(state.score||0).padStart(2,'0')+' / '+String(state.target||5).padStart(2,'0'),84,164,32,dark?'#ffebf9':'#421935');
- if(state.demo)word('AUTO DEMO / ПОВЕРНИ СТИКЕР → ВЕДРО',1510,141,19,soft,'right');
+ if(state.demo){const stages={miss:'01 / СТИКЕР ПОВЁРНУТ НЕВЕРНО',turn:'02 / ПОВОРАЧИВАЕМ СТИКЕР',catch:'03 / БУКВЫ ЛЕТЯТ В ВЕДРО',return:'04 / МЕНЯЕМ УГОЛ'};word(stages[state.demo_stage]||'AUTO DEMO / СТИКЕР',1510,141,19,soft,'right');}
  else if(state.phase==='preview')word('PREVIEW / CREATECH',1510,141,19,soft,'right');
 
  const demoStickers=state.demo_stickers||[];
