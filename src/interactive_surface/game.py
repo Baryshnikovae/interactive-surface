@@ -17,6 +17,7 @@ from typing import Callable
 W, H = 1600.0, 1000.0
 DT = 1.0 / 120.0
 SPAWN_X = 800.0
+CREATECH_RADIUS = 19  # gameplay collider and projected glyph size
 GOAL_SIDES = ((180.0, 515.0), (1085.0, 1420.0))
 PALETTE = ("solid", "orbit", "comet")
 MODES = ("manual", "repeat", "sequence")
@@ -77,6 +78,8 @@ class GameSettings:
                     raise ValueError("Список игр содержит неизвестную игру")
                 value = tuple(value)
             setattr(result, key, value)
+        if result.theme == "createch" and "ball_radius" not in data:
+            result.ball_radius = CREATECH_RADIUS
         if ("goal_x" in data or "goal_y" in data) and "goal_manual" not in data:
             result.goal_manual = True
         if not safe_goal(result.goal_x, result.goal_y):
@@ -465,6 +468,8 @@ class GameEngine:
         with self.lock:
             data = asdict(self.settings)
             data.update(updates)
+            if updates.get("theme") in THEMES and updates["theme"] != self.settings.theme and "ball_radius" not in updates:
+                data["ball_radius"] = CREATECH_RADIUS if updates["theme"] == "createch" else 14
             if ("goal_x" in updates or "goal_y" in updates) and "goal_manual" not in updates:
                 data["goal_manual"] = True
             new = GameSettings.parse(data)
