@@ -116,6 +116,13 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
             raise HTTPException(404, "Generated character asset not installed")
         return FileResponse(file, media_type="image/png")
 
+    @app.get("/assets/createch-director-hq.png", include_in_schema=False)
+    def createch_portrait_hq() -> FileResponse:
+        file = PAGE.parent / "createch-director-hq.png"
+        if not file.is_file():
+            raise HTTPException(404, "High resolution portrait is not installed")
+        return FileResponse(file, media_type="image/png")
+
     @app.get("/assets/createch-director.svg", include_in_schema=False)
     def createch_sprite() -> FileResponse:
         return FileResponse(PAGE.parent / "createch-director.svg", media_type="image/svg+xml")
