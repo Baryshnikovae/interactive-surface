@@ -289,3 +289,24 @@ def test_controller_restores_smaller_glyphs_before_browser_opens(tmp_path):
             assert controller.game.state()["settings"]["ball_radius"] == 19
         finally:
             controller.close()
+
+
+def test_physical_qt_renderer_prefers_high_quality_png(monkeypatch, tmp_path):
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtGui import QGuiApplication, QColor, QImage
+    from interactive_surface import createch_render as renderer
+
+    app = QGuiApplication.instance() or QGuiApplication([])
+    lo = QImage(8, 10, QImage.Format.Format_ARGB32)
+    lo.fill(QColor("#ec0000"))
+    assert lo.save(str(tmp_path / "createch-director.png"))
+    hi = QImage(24, 30, QImage.Format.Format_ARGB32)
+    hi.fill(QColor("#06aeff"))
+    assert hi.save(str(tmp_path / "createch-director-hq.png"))
+    monkeypatch.setattr(renderer, "ASSET_ROOT", tmp_path)
+    monkeypatch.setattr(renderer, "_portrait", None)
+    monkeypatch.setattr(renderer, "_fallback", None)
+    image, _ = renderer._sprite()
+    assert image.size().width() == 24
+    assert image.pixelColor(0, 0) == QColor("#06aeff")
