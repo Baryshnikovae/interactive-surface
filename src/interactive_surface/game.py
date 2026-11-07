@@ -165,16 +165,21 @@ class HoleRound:
         """
         phase = self.elapsed % 13.
         if phase < 3.:
+            self.demo_stage = "miss"
             angle = 13.  # sends letters right / missed catch
         elif phase < 4.:
+            self.demo_stage = "turn"
             blend = (phase - 3.)**2 * (3. - 2.*(phase - 3.))
             angle = 13. - 63.*blend
         elif phase < 11.:
+            self.demo_stage = "catch"
             angle = -50.  # sends letters towards the LEFT receiver
         elif phase < 12.:
+            self.demo_stage = "return"
             blend = (phase - 11.)**2 * (3. - 2.*(phase - 11.))
             angle = -50. + 63.*blend
         else:
+            self.demo_stage = "miss"
             angle = 13.
         self.demo_angle = angle
         self.obstacles[-101] = self._sticker_corners(800.,520.,angle)
@@ -365,6 +370,7 @@ class HoleRound:
                 for identity, polygon in self.obstacles.items() if self.demo and identity < 0
             ],
             "demo_sticker_angle": round(getattr(self, "demo_angle", 0.), 1),
+            "demo_stage": getattr(self, "demo_stage", ""),
         }
 
 
