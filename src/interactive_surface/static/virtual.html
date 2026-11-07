@@ -3,10 +3,10 @@ const params=new URLSearchParams(location.search);let token=params.get('token')|
 
 function projectorMap(quad){const [p0,p1,p2,p3]=quad;const dx1=p1[0]-p2[0],dx2=p3[0]-p2[0],dx3=p0[0]-p1[0]+p2[0]-p3[0];const dy1=p1[1]-p2[1],dy2=p3[1]-p2[1],dy3=p0[1]-p1[1]+p2[1]-p3[1];const d=dx1*dy2-dx2*dy1;const g=(dx3*dy2-dx2*dy3)/d,h=(dx1*dy3-dx3*dy1)/d;const a=p1[0]-p0[0]+g*p1[0],b=p3[0]-p0[0]+h*p3[0],c=p0[0],e=p1[1]-p0[1]+g*p1[1],f=p3[1]-p0[1]+h*p3[1],j=p0[1];return (x,y)=>{const z=g*x+h*y+1;return [(a*x+b*y+c)/z*gameCanvas.width,(e*x+f*y+j)/z*gameCanvas.height]}}
 function warpedRing(map,x,y,r,fill,stroke,width){gtx.beginPath();for(let i=0;i<=48;i++){let a=i*Math.PI*2/48;const [px,py]=map(x+r*Math.cos(a)/1600,y+r*Math.sin(a)/1000);if(i)gtx.lineTo(px,py);else gtx.moveTo(px,py)}gtx.closePath();if(fill){gtx.fillStyle=fill;gtx.fill()}if(stroke){gtx.strokeStyle=stroke;gtx.lineWidth=width;gtx.stroke()}}
-// Exact approved portrait is installed separately as a crisp transparent PNG;
-// older installations remain functional with the bundled low-res fallback.
+// Prefer the exact, unmodified original committed to GitHub. Keep legacy HQ
+// and low-res portraits only as fallbacks when an older install lacks it.
 const director = new Image();
-const directorFiles = ['/assets/createch-director-hq.png?v=4', '/assets/createch-director.png?v=4', '/assets/createch-director.svg?v=4'];
+const directorFiles = ['/assets/createch-director-original.png?v=original-1', '/assets/createch-director-hq.png?v=4', '/assets/createch-director.png?v=4', '/assets/createch-director.svg?v=4'];
 let directorFileIndex = 0;
 director.onerror = () => {directorFileIndex++; if(directorFileIndex < directorFiles.length)director.src = directorFiles[directorFileIndex]};
 director.src = directorFiles[0];
@@ -47,7 +47,8 @@ function createchPaint(map, state, dark, dpr) {
  }
  const goal=state.goal||[.25,.705,31.],gx=goal[0]*1600,gy=goal[1]*1000;
  if(['preview','playing','won'].includes(state.phase)){
-    const w=205,h=276,x=gx-.71*w,y=gy-.53*h;
+    // Match createch_render.py: full-body source, bucket lip at (0.61,0.31).
+    const w=207,h=276,x=gx-.61*w,y=gy-.31*h;
     const a=pt(x,y),b=pt(x+w,y),c=pt(x,y+h);
     if(director.complete&&director.naturalWidth){
       cc.save();cc.imageSmoothingEnabled=true;cc.imageSmoothingQuality='high';
