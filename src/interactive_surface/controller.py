@@ -34,6 +34,11 @@ class Controller:
             game_settings = GameSettings.parse({**self.saved.get("game", {}), **self.theme_store.read()})
         except ValueError:
             game_settings = GameSettings()
+        # Earlier Createch builds forced 23 px in the browser. Migrate that
+        # old theme-only value at startup too: the real Qt projector must use
+        # the same new size even when nobody opens the web controls.
+        if game_settings.theme == "createch" and game_settings.ball_radius == 23:
+            game_settings.ball_radius = 19
         self.game = GameEngine(lambda: self.recognition.state()["objects"], self.projector.publish_game,
                                config=game_settings.__dict__)
 
