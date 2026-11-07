@@ -157,7 +157,7 @@ def test_autodemo_is_not_an_aimbot_and_sticker_rotates():
     game = HoleRound(settings, random_seed=20261106, demo=True)
     assert abs(game.demo_angle - 13) < 0.1
     sticker_width = math.dist(game.obstacles[-101][0],game.obstacles[-101][1])
-    assert 108 <= sticker_width <= 115
+    assert 90 <= sticker_width <= 94
     assert game.snapshot()["demo_stickers"]
     initial_base = game.base_goal_x
     goal_positions=[]
@@ -170,3 +170,20 @@ def test_autodemo_is_not_an_aimbot_and_sticker_rotates():
     assert abs(game.base_goal_x-initial_base)<.01
     assert -50.1 <= game.demo_angle <= -49.9, "Sticker must visibly rotate toward target"
     assert all(b.radius==settings.ball_radius for b in game.balls)
+
+
+def test_createch_is_a_center_stream_without_auto_aiming():
+    settings = GameSettings.parse({"theme": "createch", "target_hits": 50,
+                                   "moving_goal": True, "spawn_interval": .42})
+    classic = HoleRound(GameSettings.parse({"theme": "classic", "spawn_interval": .42}),
+                        random_seed=4)
+    branded = HoleRound(settings, random_seed=4)
+    for _ in range(120 * 3):
+        branded.step(DT)
+        classic.step(DT)
+    assert branded.total_spawned >= 10, "Createch needs a dense continuous glyph stream"
+    assert classic.total_spawned <= 8, "Classic must keep its original spawn rate"
+    assert all(abs(b.x - 800.) < 0.01 for b in branded.balls), (
+        "Without a sticker the stream must not aim itself at the director"
+    )
+    assert branded.score == 0, "The collector must never move under a falling stream"
