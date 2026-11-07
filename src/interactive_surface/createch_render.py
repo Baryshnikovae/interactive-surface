@@ -22,8 +22,16 @@ _fallback = None
 def _sprite():
     global _portrait, _fallback
     if _portrait is None:
-        file = ASSET_ROOT / "createch-director.png"
-        _portrait = QImage(str(file)) if file.is_file() else QImage()
+        # Prefer the approved sharp portrait; retain the bundled low-res
+        # portrait as an offline fallback for installations without the HQ asset.
+        _portrait = QImage()
+        for filename in ("createch-director-hq.png", "createch-director.png"):
+            file = ASSET_ROOT / filename
+            if file.is_file():
+                candidate = QImage(str(file))
+                if not candidate.isNull():
+                    _portrait = candidate
+                    break
         _fallback = QSvgRenderer(str(ASSET_ROOT / "createch-director.svg"))
     return _portrait, _fallback
 
