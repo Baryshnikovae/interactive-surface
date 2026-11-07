@@ -55,6 +55,11 @@ def paint_game(p: QPainter, snapshot: dict, quad: list, display_w: int, display_
     p.setTransform(t, False)
     p.setClipRect(QRectF(0, 0, 1600, 1000))
     settings = snapshot.get("settings") or {}
+    if settings.get("theme") == "createch":
+        from .createch_render import paint_createch
+        paint_createch(p, snapshot, dark)
+        p.restore()
+        return
     visual = settings.get("visual_style", "neon")
     design = settings.get("ball_design", "orbit")
     tint = _color(settings.get("ball_color", "#70e9ff"))
@@ -63,7 +68,7 @@ def paint_game(p: QPainter, snapshot: dict, quad: list, display_w: int, display_
     now = time.monotonic()
     phase = snapshot.get("phase", "idle")
     balls = snapshot.get("balls") or []
-    if phase in ("playing", "won"):
+    if phase in ("playing", "won", "preview"):
         gx, gy, gr = snapshot.get("goal", [.78, .72, 45])
         x, y = gx*1600., gy*1000.
         pulse = float(snapshot.get("hits_fx", 0))

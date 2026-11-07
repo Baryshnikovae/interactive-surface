@@ -109,6 +109,31 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
     def virtual() -> FileResponse:
         return FileResponse(VIRTUAL_PAGE, media_type="text/html")
 
+    @app.get("/assets/createch-director-original.png", include_in_schema=False)
+    def createch_portrait_original() -> FileResponse:
+        file = PAGE.parent / "createch-director-original.png"
+        if not file.is_file():
+            raise HTTPException(404, "Original Createch portrait is not installed")
+        return FileResponse(file, media_type="image/png")
+
+    @app.get("/assets/createch-director.png", include_in_schema=False)
+    def createch_portrait() -> FileResponse:
+        file = PAGE.parent / "createch-director.png"
+        if not file.is_file():
+            raise HTTPException(404, "Generated character asset not installed")
+        return FileResponse(file, media_type="image/png")
+
+    @app.get("/assets/createch-director-hq.png", include_in_schema=False)
+    def createch_portrait_hq() -> FileResponse:
+        file = PAGE.parent / "createch-director-hq.png"
+        if not file.is_file():
+            raise HTTPException(404, "High resolution portrait is not installed")
+        return FileResponse(file, media_type="image/png")
+
+    @app.get("/assets/createch-director.svg", include_in_schema=False)
+    def createch_sprite() -> FileResponse:
+        return FileResponse(PAGE.parent / "createch-director.svg", media_type="image/svg+xml")
+
     @app.get("/health")
     def health():
         return {"status":"ok"}
@@ -269,6 +294,14 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
             return c.start_game(body.game)
         except ValueError as exc:
             raise HTTPException(400,str(exc)) from exc
+
+    @app.post("/api/game/preview",dependencies=[Depends(authorized)])
+    def game_preview():
+        return c.preview_game()
+
+    @app.post("/api/game/demo/start",dependencies=[Depends(authorized)])
+    def game_demo_start():
+        return c.start_demo()
 
     @app.post("/api/game/stop",dependencies=[Depends(authorized)])
     def game_stop():

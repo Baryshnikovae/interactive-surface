@@ -17,15 +17,18 @@ from typing import Callable
 W, H = 1600.0, 1000.0
 DT = 1.0 / 120.0
 SPAWN_X = 800.0
+CREATECH_RADIUS = 19  # gameplay collider and projected glyph size
 GOAL_SIDES = ((180.0, 515.0), (1085.0, 1420.0))
 PALETTE = ("solid", "orbit", "comet")
 MODES = ("manual", "repeat", "sequence")
+THEMES = ("classic", "createch")
 AVAILABLE_GAMES = ("hole",)
 
 
 @dataclass
 class GameSettings:
     cycle_mode: str = "manual"
+    theme: str = "classic"
     visual_style: str = "neon"
     ball_design: str = "orbit"
     ball_color: str = "#70e9ff"
@@ -46,7 +49,9 @@ class GameSettings:
         for key, value in data.items():
             if key not in allowed:
                 raise ValueError(f"Неизвестная настройка: {key}")
-            if key == "cycle_mode" and value not in MODES:
+            if key == "theme" and value not in THEMES:
+                raise ValueError("Неизвестная тема оформления")
+            elif key == "cycle_mode" and value not in MODES:
                 raise ValueError("Неизвестный режим смены раундов")
             elif key == "visual_style" and value not in ("flat", "neon"):
                 raise ValueError("Неизвестный визуальный стиль")
@@ -54,8 +59,8 @@ class GameSettings:
                 raise ValueError("Неизвестный дизайн шарика")
             elif key == "ball_color" and (not isinstance(value, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", value)):
                 raise ValueError("Укажите цвет в формате #RRGGBB")
-            elif key == "ball_radius" and (type(value) is not int or not 8 <= value <= 26):
-                raise ValueError("Радиус шарика должен быть от 8 до 26")
+            elif key == "ball_radius" and (type(value) is not int or not 8 <= value <= (48 if data.get("theme", result.theme) == "createch" else 26)):
+                raise ValueError("Радиус объекта вне допустимого диапазона выбранной темы")
             elif key == "moving_goal" and type(value) is not bool:
                 raise ValueError("Некорректное значение движения лунки")
             elif key in ("goal_x", "goal_y") and (not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1):
@@ -73,6 +78,8 @@ class GameSettings:
                     raise ValueError("Список игр содержит неизвестную игру")
                 value = tuple(value)
             setattr(result, key, value)
+        if result.theme == "createch" and "ball_radius" not in data:
+            result.ball_radius = CREATECH_RADIUS
         if ("goal_x" in data or "goal_y" in data) and "goal_manual" not in data:
             result.goal_manual = True
         if not safe_goal(result.goal_x, result.goal_y):
@@ -114,9 +121,10 @@ class HoleRound:
     id = "hole"
     title = "Шарики и лунка"
 
-    def __init__(self, settings: GameSettings, random_seed: int | None = None):
+    def __init__(self, settings: GameSettings, random_seed: int | None = None, demo: bool = False):
         self.rng = random.Random(random_seed)
         self.settings = settings
+        self.demo = demo
         self.balls: list[Ball] = []
         self.obstacles: dict[int, tuple] = {}
         self.score = 0
@@ -130,10 +138,54 @@ class HoleRound:
         self.goal_y = settings.goal_y * H
         self.base_goal_x = self.goal_x
         self.base_goal_y = self.goal_y
-        self.goal_radius = 45.0
+        self.goal_radius = 31.0 if settings.theme == "createch" else 45.0
         self.last_hit = -20.
         self._goal_phase = 0.
         self.randomize_goal()
+        if self.demo and self.settings.theme == "createch":
+            # A compact demonstration sticker is placed in the same physics
+            # obstacle collection as the detected physical stickers.
+            # The catcher is fixed to the side lane; it does not follow balls.
+            self.base_goal_x = 425.
+            self.base_goal_y = 720.
+            self._goal_phase = 0.
+            self._update_demo_sticker()
+            self._goal_position(0.)
+
+    @staticmethod
+    def _sticker_corners(cx: float, cy: float, angle_deg: float) -> tuple:
+        """Compact 92×26 physical sticker, used by the real collision solver."""
+        a = math.radians(angle_deg)
+        ca, sa = math.cos(a), math.sin(a)
+        return tuple((cx + xx*ca-yy*sa, cy + xx*sa+yy*ca)
+                     for xx,yy in ((-46.,-13.),(46.,-13.),(46.,13.),(-46.,13.)))
+
+    def _update_demo_sticker(self) -> None:
+        """Show a miss first, then turn one small sticker toward the bucket.
+
+        Angle timing is deterministic, but collisions are always solved by
+        _collide_rectangles, the real sticker/hand collision path.
+        """
+        phase = self.elapsed % 13.
+        if phase < 3.:
+            self.demo_stage = "miss"
+            angle = 13.  # sends letters right / missed catch
+        elif phase < 4.:
+            self.demo_stage = "turn"
+            blend = (phase - 3.)**2 * (3. - 2.*(phase - 3.))
+            angle = 13. - 63.*blend
+        elif phase < 11.:
+            self.demo_stage = "catch"
+            angle = -50.  # sends letters towards the LEFT receiver
+        elif phase < 12.:
+            self.demo_stage = "return"
+            blend = (phase - 11.)**2 * (3. - 2.*(phase - 11.))
+            angle = -50. + 63.*blend
+        else:
+            self.demo_stage = "miss"
+            angle = 13.
+        self.demo_angle = angle
+        self.obstacles[-101] = self._sticker_corners(800.,520.,angle)
 
     def randomize_goal(self, side: int | None = None) -> None:
         if self.settings.goal_manual:
@@ -174,8 +226,11 @@ class HoleRound:
         self._goal_phase += dt * .75
         base_x, base_y = self.base_goal_x, self.base_goal_y
         lo, hi = next((lo, hi) for lo, hi in GOAL_SIDES if lo <= base_x <= hi)
-        amplitude_x = min(75., base_x-lo, hi-base_x)
-        amplitude_y = min(80., base_y-540., 890.-base_y)
+        # Demo and normal gameplay have the same autonomous goal motion.
+        # Demo amplitude is small: the PLAYER/STICKER must aim; the bucket
+        # NEVER pursues the stream.
+        amplitude_x = min(22. if self.demo else (32. if self.settings.theme == "createch" else 75.), base_x-lo, hi-base_x)
+        amplitude_y = min(12. if self.demo else (18. if self.settings.theme == "createch" else 80.), base_y-540., 890.-base_y)
         self.goal_x = base_x + amplitude_x * math.sin(self._goal_phase)
         self.goal_y = base_y + amplitude_y * math.sin(self._goal_phase*1.3 + .8)
 
@@ -183,8 +238,10 @@ class HoleRound:
         if len(self.balls) >= self.settings.max_balls:
             return
         radius = self.settings.ball_radius
-        # No random horizontal jitter: the goal must not catch unassisted balls.
-        self.balls.append(Ball(self.next_id, SPAWN_X, 18., 0., 0., radius))
+        # Identical vertical centre-lane stream in Classic, Createch and demo.
+        # No fabricated sideways velocity to guarantee a catch.
+        spawn_x, vx = SPAWN_X, 0.
+        self.balls.append(Ball(self.next_id, spawn_x, 18., vx, 0., radius))
         self.next_id += 1
         self.total_spawned += 1
 
@@ -232,7 +289,7 @@ class HoleRound:
 
     def _collide_balls(self) -> None:
         # Spatial grid avoids O(n²) comparisons for the capped stream.
-        cell = 54.
+        cell = max(54., max((b.radius for b in self.balls), default=0.) * 2 + 2.)
         grid: dict[tuple[int, int], list[Ball]] = {}
         for ball in self.balls:
             x, y = int(ball.x//cell), int(ball.y//cell)
@@ -260,9 +317,14 @@ class HoleRound:
             return
         self.elapsed += dt
         self._goal_position(dt)
+        if self.demo and self.settings.theme == "createch":
+            self._update_demo_sticker()
         self.spawn_clock += dt
-        if self.spawn_clock >= self.settings.spawn_interval:
-            self.spawn_clock -= self.settings.spawn_interval
+        # Createch uses a visually continuous stream; Classic keeps its
+        # original operator-configured spawn rate and physics unchanged.
+        spawn_period = min(self.settings.spawn_interval, .28) if self.settings.theme == "createch" else self.settings.spawn_interval
+        if self.spawn_clock >= spawn_period:
+            self.spawn_clock -= spawn_period
             self._spawn()
         alive = []
         for ball in self.balls:
@@ -273,7 +335,15 @@ class HoleRound:
             ball.x += ball.vx*dt
             ball.y += ball.vy*dt
             self._collide_rectangles(ball)
-            if (ball.x-self.goal_x)**2+(ball.y-self.goal_y)**2 <= (self.goal_radius+ball.radius*.33)**2:
+            # Createch scores only when a descending glyph enters the visible
+            # bucket opening; Classic retains its original circular capture.
+            if self.settings.theme == "createch":
+                caught = (abs(ball.x - self.goal_x) <= self.goal_radius - ball.radius*.40
+                          and self.goal_y - 3. <= ball.y <= self.goal_y + 17.
+                          and ball.vy >= 0.)
+            else:
+                caught = (ball.x-self.goal_x)**2+(ball.y-self.goal_y)**2 <= (self.goal_radius+ball.radius*.33)**2
+            if caught:
                 self.score += 1
                 self.last_hit = self.elapsed
                 continue
@@ -289,7 +359,8 @@ class HoleRound:
 
     def snapshot(self) -> dict:
         return {
-            "balls": [[round(b.x/W, 5), round(b.y/H, 5), b.radius, round(b.vx/W, 4), round(b.vy/H, 4)] for b in self.balls],
+            "balls": [[round(b.x/W, 5), round(b.y/H, 5), b.radius, round(b.vx/W, 4), round(b.vy/H, 4),
+                       round((b.id * 137.5 + b.age * 23.) % 360., 1)] for b in self.balls],
             "goal": [round(self.goal_x/W, 5), round(self.goal_y/H, 5), self.goal_radius],
             "score": self.score,
             "target": self.settings.target_hits,
@@ -297,6 +368,12 @@ class HoleRound:
             "culled": self.total_culled,
             "spawned": self.total_spawned,
             "obstacles": len(self.obstacles),
+            "demo_stickers": [
+                [[round(x/W, 5), round(y/H, 5)] for x,y in polygon]
+                for identity, polygon in self.obstacles.items() if self.demo and identity < 0
+            ],
+            "demo_sticker_angle": round(getattr(self, "demo_angle", 0.), 1),
+            "demo_stage": getattr(self, "demo_stage", ""),
         }
 
 
@@ -310,6 +387,7 @@ class GameEngine:
         self.available_games = {"hole": "Шарики и лунка"}
         self.current_game = "hole"
         self.phase = "idle"
+        self.demo = False
         self.round: HoleRound | None = None
         self.rounds = 0
         self._complete_at = 0.
@@ -328,16 +406,17 @@ class GameEngine:
     def _compose(self) -> dict:
         result = self.round.snapshot() if self.round else {"balls": [], "goal": [self.settings.goal_x, self.settings.goal_y, 45.], "score": 0, "target": self.settings.target_hits, "hits_fx": 0., "culled": 0, "spawned": 0, "obstacles": 0}
         return {**result, "game": self.current_game, "phase": self.phase, "round_number": self.rounds,
-                "settings": asdict(self.settings), "physics_fps": round(self._recent_fps, 1),
+                "settings": asdict(self.settings), "demo": self.demo, "physics_fps": round(self._recent_fps, 1),
                 "physics_ms": round(self._tick_cost_ms, 3), "updated": time.monotonic()}
 
-    def _start_locked(self, game: str = "hole") -> None:
+    def _start_locked(self, game: str = "hole", demo: bool = False) -> None:
         if game not in self.available_games:
             raise ValueError("Неизвестная игра")
         self.current_game = game
-        self.round = HoleRound(self.settings)
-        if not self.settings.goal_manual:
-            self.round.randomize_goal(side=self.rounds % 2)
+        self.round = HoleRound(self.settings, random_seed=(20261106 + self.rounds) if demo else None, demo=demo)
+        if not self.settings.goal_manual and not demo:
+            # Keep Createch's actor left of the bottom-right wordmark.
+            self.round.randomize_goal(side=0 if self.settings.theme == "createch" else self.rounds % 2)
         self.phase = "playing"
         self.rounds += 1
         self._complete_at = 0.
@@ -346,11 +425,40 @@ class GameEngine:
 
     def start(self, game: str = "hole") -> dict:
         with self.lock:
+            self.demo = False
             self._start_locked(game)
+            return self.state()
+
+    def preview(self) -> dict:
+        """Render a frozen theme composition without starting a real round."""
+        with self.lock:
+            self.demo = False
+            self.round = HoleRound(self.settings, random_seed=42)
+            if self.settings.theme == "createch":
+                self.round.base_goal_x = 425.
+                self.round.base_goal_y = 720.
+                self.round._goal_position(0.)
+            gx, gy = self.round.goal_x, self.round.goal_y
+            self.round.balls = [
+                Ball(1, 790., 175., 0., 0., self.settings.ball_radius),
+                Ball(2, 640., 345., 0., 0., self.settings.ball_radius),
+                Ball(3, gx - 20., gy - 135., 0., 0., self.settings.ball_radius),
+                Ball(4, gx + 28., gy - 235., 0., 0., self.settings.ball_radius),
+            ]
+            self.phase = "preview"
+            self._snapshot = self._compose()
+            return self.state()
+
+    def start_demo(self) -> dict:
+        """Continuously simulate real gameplay with a camera-free auto catcher."""
+        with self.lock:
+            self.demo = True
+            self._start_locked("hole", demo=True)
             return self.state()
 
     def stop(self) -> dict:
         with self.lock:
+            self.demo = False
             self.phase = "idle"
             self.round = None
             self._snapshot = self._compose()
@@ -360,12 +468,15 @@ class GameEngine:
         with self.lock:
             data = asdict(self.settings)
             data.update(updates)
+            if updates.get("theme") in THEMES and updates["theme"] != self.settings.theme and "ball_radius" not in updates:
+                data["ball_radius"] = CREATECH_RADIUS if updates["theme"] == "createch" else 14
             if ("goal_x" in updates or "goal_y" in updates) and "goal_manual" not in updates:
                 data["goal_manual"] = True
             new = GameSettings.parse(data)
             self.settings = new
             if self.round:
                 self.round.settings = new
+                self.round.goal_radius = 31. if new.theme == "createch" else 45.
                 # The manual position is immediately effective when movement is off.
                 if "goal_x" in updates or "goal_y" in updates or "goal_manual" in updates:
                     if "goal_x" in updates or "goal_y" in updates:
@@ -390,15 +501,17 @@ class GameEngine:
                 if self.round.finished:
                     self.phase = "won"
                     self._complete_at = time.monotonic()
-            elif self.phase == "won" and self.round and self.settings.cycle_mode != "manual":
+            elif self.phase == "won" and self.round and (self.demo or self.settings.cycle_mode != "manual"):
                 if time.monotonic() - self._complete_at >= 2.7:
-                    if self.settings.cycle_mode == "sequence":
+                    if self.demo:
+                        next_game = "hole"
+                    elif self.settings.cycle_mode == "sequence":
                         playlist = list(self.settings.playlist)
                         pos = playlist.index(self.current_game) if self.current_game in playlist else -1
                         next_game = playlist[(pos+1) % len(playlist)]
                     else:
                         next_game = self.current_game
-                    self._start_locked(next_game)
+                    self._start_locked(next_game, demo=self.demo)
             self._snapshot = self._compose()
 
     def _loop(self) -> None:
@@ -416,7 +529,7 @@ class GameEngine:
                     try:
                         objects = self.objects_provider()
                         with self.lock:
-                            if self.round:
+                            if self.round and not self.demo:
                                 self.round.set_obstacles(objects)
                     except (ValueError, KeyError, TypeError):
                         pass

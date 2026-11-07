@@ -3,7 +3,95 @@ const params=new URLSearchParams(location.search);let token=params.get('token')|
 
 function projectorMap(quad){const [p0,p1,p2,p3]=quad;const dx1=p1[0]-p2[0],dx2=p3[0]-p2[0],dx3=p0[0]-p1[0]+p2[0]-p3[0];const dy1=p1[1]-p2[1],dy2=p3[1]-p2[1],dy3=p0[1]-p1[1]+p2[1]-p3[1];const d=dx1*dy2-dx2*dy1;const g=(dx3*dy2-dx2*dy3)/d,h=(dx1*dy3-dx3*dy1)/d;const a=p1[0]-p0[0]+g*p1[0],b=p3[0]-p0[0]+h*p3[0],c=p0[0],e=p1[1]-p0[1]+g*p1[1],f=p3[1]-p0[1]+h*p3[1],j=p0[1];return (x,y)=>{const z=g*x+h*y+1;return [(a*x+b*y+c)/z*gameCanvas.width,(e*x+f*y+j)/z*gameCanvas.height]}}
 function warpedRing(map,x,y,r,fill,stroke,width){gtx.beginPath();for(let i=0;i<=48;i++){let a=i*Math.PI*2/48;const [px,py]=map(x+r*Math.cos(a)/1600,y+r*Math.sin(a)/1000);if(i)gtx.lineTo(px,py);else gtx.moveTo(px,py)}gtx.closePath();if(fill){gtx.fillStyle=fill;gtx.fill()}if(stroke){gtx.strokeStyle=stroke;gtx.lineWidth=width;gtx.stroke()}}
-function animateGame(){if(gameVisual){const s=gameVisual.game||{},a=s.settings||{},quad=gameVisual.quad;const rw=window.innerWidth,rh=window.innerHeight,dpr=Math.min(2,window.devicePixelRatio||1);const nw=Math.round(rw*dpr),nh=Math.round(rh*dpr);if(gameCanvas.width!==nw||gameCanvas.height!==nh){gameCanvas.width=nw;gameCanvas.height=nh}gtx.fillStyle=gameVisual.background==='white'?'#fff':'#000';gtx.fillRect(0,0,nw,nh);if(quad&&s.phase){const map=projectorMap(quad),dark=gameVisual.background!=='white',accent=dark?'#998aff':'#6d43a3',color=a.ball_color||'#70e9ff';if(s.phase==='playing'||s.phase==='won'){const goal=s.goal||[.78,.72,45];warpedRing(map,goal[0],goal[1],goal[2]*1.14,dark?'#191127':'#eae3ff',accent,Math.max(2,dpr*4));warpedRing(map,goal[0],goal[1],goal[2]*.61,null,dark?'#c5bfff':'#705aa6',Math.max(1,dpr*2))}const seconds=Math.min(.035,Math.max(0,(performance.now()-gameReceived)/1000));for(const b of (s.balls||[])){const x=b[0]+b[3]*seconds,y=b[1]+b[4]*seconds,r=b[2];warpedRing(map,x,y,r,color,a.visual_style==='flat'?(dark?'#fff':'#1a3650'):color,Math.max(1,dpr));if(a.ball_design==='orbit')warpedRing(map,x,y,r*.58,null,'#fff',Math.max(1,dpr));if(a.ball_design==='comet'){const [px,py]=map(x,y),[qx,qy]=map(x-b[3]*.03,y-b[4]*.03);gtx.strokeStyle=color;gtx.lineWidth=3*dpr;gtx.beginPath();gtx.moveTo(px,py);gtx.lineTo(qx,qy);gtx.stroke()}}if(s.phase==='playing'){const [px,py]=map(.03,.06);gtx.fillStyle=dark?'#eff':'#234';gtx.font='bold '+Math.max(16,27*dpr)+'px system-ui';gtx.fillText(s.score+' / '+s.target,px,py)}if(s.phase==='won'){const [px,py]=map(.33,.5);gtx.fillStyle=dark?'#dbf8ff':'#243654';gtx.font='bold '+Math.max(24,60*dpr)+'px system-ui';gtx.fillText('ОТЛИЧНО!',px,py)}}}requestAnimationFrame(animateGame)}requestAnimationFrame(animateGame);
+// Prefer the exact, unmodified original committed to GitHub. Keep legacy HQ
+// and low-res portraits only as fallbacks when an older install lacks it.
+const director = new Image();
+const directorFiles = ['/assets/createch-director-original.png?v=original-1', '/assets/createch-director-hq.png?v=4', '/assets/createch-director.png?v=4', '/assets/createch-director.svg?v=4'];
+let directorFileIndex = 0;
+director.onerror = () => {directorFileIndex++; if(directorFileIndex < directorFiles.length)director.src = directorFiles[directorFileIndex]};
+director.src = directorFiles[0];
+if(params.has('showcase')){document.body.classList.add('showcase');document.querySelector('.tip').style.display='none'}
 
-async function update(){try{const r=await fetch('/api/projector/visual',{headers:{'X-Control-Token':token}});if(r.ok)draw(await r.json());else board.innerHTML='<text x="100" y="100">Нет доступа — откройте QR</text>'}catch{}}update();setInterval(update,130);
+function createchPaint(map, state, dark, dpr) {
+ const cc=gtx, pink='#f629bb', soft='#ff90de';
+ const pt=(x,y)=>map(x/1600,y/1000);
+ function path(coords, color, width=0, fill=null) {
+   cc.beginPath();coords.forEach(([x,y],i)=>{const a=pt(x,y);i?cc.lineTo(...a):cc.moveTo(...a)});
+   if(fill){cc.closePath();cc.fillStyle=fill;cc.fill()}
+   if(width){cc.strokeStyle=color;cc.lineWidth=Math.max(1,width*dpr);cc.stroke()}
+ }
+ function word(t,x,y,size,color,align='left',weight='700') {
+   const [px,py]=pt(x,y),scale=Math.hypot(...(()=>{const a=pt(0,0),b=pt(0,100);return[b[0]-a[0],b[1]-a[1]]})())/100;
+   cc.font=weight+' '+Math.max(10,size*scale)+'px "DejaVu Sans",Arial,sans-serif';
+   cc.textAlign=align;cc.fillStyle=color;cc.fillText(t,px,py);
+ }
+ cc.fillStyle=dark?'#0b0518':'#fff7fc';cc.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+ path([[62,25],[1538,25],[1570,57],[1570,944],[1541,976],[60,976],[30,944],[30,58],[62,25]],pink,3.5);
+ path([[75,94],[575,94],[625,43]],pink,3.2);
+ path([[1296,43],[1520,43]],'#a82d87',1.5);
+ path([[70,934],[1030,934],[1050,922],[1518,922]],'#92166c',1.7);
+ word('CREATECH / INTERACTIVE',82,77,21,'#ff4fc9');
+ word('01 / INTERACTIVE PLAY',1513,75,16,'#c9a6c3','right','500');
+ word('КРЕАТЕХ.',1515,902,70,pink,'right','900');
+ word(String(state.score||0).padStart(2,'0')+' / '+String(state.target||5).padStart(2,'0'),84,164,32,dark?'#ffebf9':'#421935');
+ if(state.demo){const stages={miss:'01 / СТИКЕР ПОВЁРНУТ НЕВЕРНО',turn:'02 / ПОВОРАЧИВАЕМ СТИКЕР',catch:'03 / БУКВЫ ЛЕТЯТ В ВЕДРО',return:'04 / МЕНЯЕМ УГОЛ'};word(stages[state.demo_stage]||'AUTO DEMO / СТИКЕР',1510,141,19,soft,'right');}
+ else if(state.phase==='preview')word('PREVIEW / CREATECH',1510,141,19,soft,'right');
+
+ const demoStickers=state.demo_stickers||[];
+ for(const sticker of demoStickers){
+   const pts=sticker.map(([x,y])=>[x*1600,y*1000]);
+   path(pts,pink,3,'#5b174a');
+   const upper=pts.slice(0,2);path(upper,'#fff3fd',2);
+   const mx=(pts[0][0]+pts[1][0])/2,my=(pts[0][1]+pts[1][1])/2;
+   word('СТИКЕР / ОТСКОК',mx,my-33,18,'#ff7bd5','center');
+ }
+ const goal=state.goal||[.25,.705,31.],gx=goal[0]*1600,gy=goal[1]*1000;
+ if(['preview','playing','won'].includes(state.phase)){
+    // Match createch_render.py: full-body source, bucket lip at (0.61,0.31).
+    const w=207,h=276,x=gx-.61*w,y=gy-.31*h;
+    const a=pt(x,y),b=pt(x+w,y),c=pt(x,y+h);
+    if(director.complete&&director.naturalWidth){
+      cc.save();cc.imageSmoothingEnabled=true;cc.imageSmoothingQuality='high';
+      cc.transform((b[0]-a[0])/w,(b[1]-a[1])/w,
+        (c[0]-a[0])/h,(c[1]-a[1])/h,a[0],a[1]);
+      cc.drawImage(director,0,0,w,h);
+      cc.restore();
+    }else{
+      path([[gx-32,gy-5],[gx+32,gy-5],[gx+25,gy+45],[gx-25,gy+45]],pink,2,'#79045e');
+    }
+    if(state.hits_fx>0)warpedRing(map,gx/1600,(gy+9)/1000,31+state.hits_fx*24,null,soft,Math.max(2,dpr*2));
+ }
+ const elapsed=Math.min(.04,Math.max(0,(performance.now()-gameReceived)/1000));
+ for(const b of (state.balls||[])){
+   const x=(b[0]+b[3]*elapsed)*1600,y=(b[1]+b[4]*elapsed)*1000,r=Math.min(30,Number(b[2]));
+   if(y<120||y>940)continue;
+   const scale=r/29,angle=((b[5]??0)*Math.PI/180);
+   const rot=(ax,ay)=>[x+scale*(ax*Math.cos(angle)-ay*Math.sin(angle)),y+scale*(ax*Math.sin(angle)+ay*Math.cos(angle))];
+   path([[-25,-21],[-13,-21],[-13,-4],[-7,-4],[7,-21],[22,-21],[3,-1],[21,20],[7,20],[-7,3],[-13,3],[-13,20],[-25,20]].map(([a,b])=>rot(a,b)),pink,0,pink);
+   path([[27,9],[37,9],[37,20],[27,20]].map(([a,b])=>rot(a,b)),pink,0,pink);
+ }
+ if(state.phase==='won'){path([[325,365],[1275,365],[1275,620],[325,620]],pink,0,'#180920');word('ОТЛИЧНО!',800,485,72,soft,'center','900');const caption=state.settings?.cycle_mode==='manual'?'Новый раунд запускается с пульта':'Следующий раунд скоро начнётся';word(caption,800,565,28,'#ffebf9','center','500')}
+}
+function animateGame(){if(gameVisual){const s=gameVisual.game||{},a=s.settings||{},quad=gameVisual.quad;const rw=window.innerWidth,rh=window.innerHeight,dpr=Math.min(2,window.devicePixelRatio||1);const nw=Math.round(rw*dpr),nh=Math.round(rh*dpr);if(gameCanvas.width!==nw||gameCanvas.height!==nh){gameCanvas.width=nw;gameCanvas.height=nh}gtx.fillStyle=gameVisual.background==='white'?'#fff':'#000';gtx.fillRect(0,0,nw,nh);if(quad&&s.phase){const map=projectorMap(quad),dark=gameVisual.background!=='white',accent=dark?'#998aff':'#6d43a3',color=a.ball_color||'#70e9ff';if(a.theme==='createch'){createchPaint(map,s,dark,dpr);requestAnimationFrame(animateGame);return;}if(s.phase==='playing'||s.phase==='won'){const goal=s.goal||[.78,.72,45];warpedRing(map,goal[0],goal[1],goal[2]*1.14,dark?'#191127':'#eae3ff',accent,Math.max(2,dpr*4));warpedRing(map,goal[0],goal[1],goal[2]*.61,null,dark?'#c5bfff':'#705aa6',Math.max(1,dpr*2))}const seconds=Math.min(.035,Math.max(0,(performance.now()-gameReceived)/1000));for(const b of (s.balls||[])){const x=b[0]+b[3]*seconds,y=b[1]+b[4]*seconds,r=b[2];warpedRing(map,x,y,r,color,a.visual_style==='flat'?(dark?'#fff':'#1a3650'):color,Math.max(1,dpr));if(a.ball_design==='orbit')warpedRing(map,x,y,r*.58,null,'#fff',Math.max(1,dpr));if(a.ball_design==='comet'){const [px,py]=map(x,y),[qx,qy]=map(x-b[3]*.03,y-b[4]*.03);gtx.strokeStyle=color;gtx.lineWidth=3*dpr;gtx.beginPath();gtx.moveTo(px,py);gtx.lineTo(qx,qy);gtx.stroke()}}if(s.phase==='playing'){const [px,py]=map(.03,.06);gtx.fillStyle=dark?'#eff':'#234';gtx.font='bold '+Math.max(16,27*dpr)+'px system-ui';gtx.fillText(s.score+' / '+s.target,px,py)}if(s.phase==='won'){const [px,py]=map(.33,.5);gtx.fillStyle=dark?'#dbf8ff':'#243654';gtx.font='bold '+Math.max(24,60*dpr)+'px system-ui';gtx.fillText('ОТЛИЧНО!',px,py)}}}requestAnimationFrame(animateGame)}requestAnimationFrame(animateGame);
+
+async function update(){try{if(!token){const session=await fetch('/api/session').then(r=>r.json());if(session.local&&session.token){token=session.token;sessionStorage.setItem('surfaceKey',token)}}
+const headers={'X-Control-Token':token};
+const response=await fetch('/api/projector/visual',{headers});
+if(!response.ok){board.innerHTML='<text x="100" y="100">Нет доступа — откройте QR</text>';return}
+const projection=await response.json();
+if(params.has('showcase')){
+  const gameResponse=await fetch('/api/game/state',{headers});
+  if(!gameResponse.ok)return;
+  const state=await gameResponse.json();
+  // A full-bleed, calibration-independent composition for the operator.
+  // This affects ONLY the browser preview: hardware still uses the real quad.
+  if(state.phase==='idle'&&state.settings?.theme==='createch'){
+    state.phase='preview';
+    state.goal=[.25,.705,31];
+    state.balls=[[.43,.28,19,0,0,15],[.57,.47,19,0,0,90],[.37,.39,19,0,0,230]];
+  }
+  draw({...projection,mode:'game',quad:[[0,0],[1,0],[1,1],[0,1]],game:state});
+}else draw(projection);
+}catch(error){console.warn('Projector preview update failed',error)}
+}update();setInterval(update,130);
 </script></body></html>

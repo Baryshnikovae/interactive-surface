@@ -1,6 +1,6 @@
 # Interactive Surface
 
-**Event test version 0.4.1: calibration, physical-object recognition, and ball game.**
+**Event test version 0.4.1: calibration, object recognition, Classic game and Createch theme with the original director PNG.**
 
 **Windows event setup (operate with the laptop lid closed from a phone):** [WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md). The optional [prepare-event-windows.bat](prepare-event-windows.bat) configures AC lid/sleep and a Private-only LAN firewall rule; read the guide before running it as administrator.
 
@@ -10,7 +10,26 @@ Local operator UI for camera/projector calibration, colour recognition and the *
 
 ## Быстрый старт — всегда из `main`
 
-**Windows (Command Prompt):**
+**Windows 10/11 — обновить проект, который уже есть на компьютере (CMD):**
+
+Сначала останови старый сервер клавишами `Ctrl+C`, затем выполни:
+
+```cmd
+cd /d "%USERPROFILE%\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+start.bat
+```
+
+Это обновляет **существующую папку**, включая оригинальный файл
+`src/interactive_surface/static/createch-director-original.png`.
+Заново клонировать проект или отдельно загружать PNG/ZIP не нужно.
+Если `git switch` или `git pull` сообщит о локальных изменениях, не удаляй
+их — проверь `git status` и сохрани свою работу перед продолжением.
+Если проект находится в другой папке, используй её путь вместо указанного выше.
+
+**Windows — первый запуск, когда папки проекта ещё нет (CMD):**
 
 ```cmd
 cd /d "%USERPROFILE%"
@@ -18,6 +37,25 @@ git clone https://github.com/Baryshnikovae/interactive-surface.git
 cd interactive-surface
 start.bat
 ```
+
+**Windows PowerShell (существующая папка):**
+
+```powershell
+cd "$env:USERPROFILE\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+.\start.bat
+```
+
+`start.bat` сам создаёт `.venv` и устанавливает зависимости при первой
+установке (необходим Python 3.10+ с `py` launcher; предпочтительно 3.12).
+Пульт на ноутбуке: `http://127.0.0.1:8765/games`.
+Для просмотра полного оформления: `http://127.0.0.1:8765/virtual-projector?showcase=1`.
+Выбери тему **Createch**, затем **Preview Theme** или **Auto Demo**.
+Для настоящей игры сначала выбери камеру и физический проектор,
+заверши калибровку и обучение стикера и нажми **Запустить раунд**.
+`Auto Demo` не использует настоящую камеру.
 
 **Linux / Manjaro:**
 
@@ -174,16 +212,30 @@ stops gameplay until it has been checked again.
 
 ### Installing and running from `main`
 
-Linux / Manjaro:
+**Windows CMD — update existing checkout:**
+
+```cmd
+cd /d "%USERPROFILE%\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+start.bat
+```
+
+For a first Windows installation, see [Быстрый старт](#быстрый-старт--всегда-из-main)
+and [WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md).
+
+**Linux / Manjaro — update existing checkout (stop the previous server first):**
 
 ```bash
-git clone https://github.com/Baryshnikovae/interactive-surface.git
-cd interactive-surface
+cd ~/Загрузки/interactive-surface-test
+git fetch origin
+git switch main
+git pull --ff-only origin main
 sh start.sh
 ```
 
-Windows: clone the default `main` branch and run `start.bat`. The existing scripts
-install the declared Python dependencies when needed.
+Both scripts install the declared Python dependencies when necessary.
 
 Automated tests:
 
@@ -210,13 +262,135 @@ LAN. There is no soundtrack or image upload in this milestone.
 - Stored colour settings are independent for black and white projected backgrounds. Selecting the same camera, video resolution and display on a subsequent launch restores compatible calibration and colour automatically, while changed hardware requires checking the setup.
 - The hole appears at a newly randomized **lower-left/lower-right location** each round, alternating sides without entering the central drop corridor. Tapping the map manually pins the hole; choose **Случайное положение каждый раунд** to restore randomness. The projector no longer displays the top «ЛУНКА» heading.
 
-Update a previously cloned Manjaro checkout (stop the current server first):
+Update a previously cloned Manjaro checkout (stop the current server first;
+preserve local work rather than resetting the branch):
 
 ```bash
 cd ~/Загрузки/interactive-surface-test
-git fetch origin main
-git switch -C main origin/main
+git fetch origin
+git switch main
+git pull --ff-only origin main
 sh start.sh
 ```
 
 Local calibration, colour and game settings are stored outside Git in `~/.config/interactive-surface/calibration.json` by default. Back this file up before resetting the installation. False positives whose HSV values are essentially identical to the target colour cannot always be separated by colour alone; avoid matching colours in clothing, or use controlled lighting and the red exclusion samples.
+
+
+## Createch visual theme and automatic demo
+
+The game operator page at **/games** has a **Theme** selector (Classic / Createch).
+Classic preserves the original balls and hole. Createch uses a fuchsia frame,
+heavy `КРЕАТЕХ.` wordmark, falling angular `К.` glyphs, and a stylized pixel-art
+director with a magenta catching bucket. Physics still uses circular ball
+colliders; Createch has a smaller 19-pixel default collider and a bucket
+capture condition, while Classic's original mode remains unchanged.
+
+**Preview Theme** shows a frozen composition. **Auto Demo** uses the same
+120 Hz game engine and simulates falling glyphs deflected by a rotating
+rectangular sticker. The director drifts only slightly; it does not chase
+falling letters. The demo needs no camera, colour learning, or calibration.
+Use **Выйти из просмотра** to stop. The virtual projector lives at
+`/virtual-projector`; open it in another browser tab to view the complete
+scene. On a real projector, the same theme is painted by Qt, including
+the same `static/createch-director-original.png` file used by the web
+projector. The SVG and older PNG variants are offline fallbacks only.
+
+The selected theme persists in `theme-settings.json` beside the local
+calibration profile, even when the calibration profile is not created yet.
+The director's original full-resolution transparent PNG is committed directly
+to GitHub and used without modifying the source file. Confirm character scale
+and the collision point at the real bucket rim during hardware calibration.
+
+**Safety:** Preview / Auto Demo are for appearance testing. Neither
+qualifies the camera, real-world mapping, collision alignment on physical
+markers, nor the actual projector. Test hardware on-site before use.
+
+### Createch live visual check (no projector required)
+
+The **/games** page now embeds the exact browser-side scene in its left-hand
+playfield when Createch is selected. The director, bucket, frame and glyphs
+appear there, not merely on the separate projector page. `Preview Theme`
+freezes a composition and `Auto Demo` runs the actual physics/autocatcher.
+The full-size browser scene is available at
+`http://127.0.0.1:8765/virtual-projector?showcase=1` without calibrated hardware.
+In this showcase URL the scene uses a full-viewport projection quad only for
+browser visualization; real projection remains calibrated separately.
+Createch uses a 19 px default glyph radius in both real play and demo,
+including after migrating older local theme settings. Classic keeps 14 px.
+Classic restores the previous Classic radius when switched back in the UI.
+
+
+### Createch visual redesign and interaction demo (November 2026)
+
+The Createch projection is composed by `createch_render.py` for actual Qt fullscreen
+projection and by the matching canvas renderer in `static/virtual.html`. The
+transparent, full-resolution, user-approved image
+`static/createch-director-original.png` is included in the Python package.
+Both Qt and browser render this untouched asset, smoothly downscaling it in
+the scene. Its bucket lip is aligned with the physics goal, and older PNG/SVG
+assets remain as fallbacks.
+
+The small angular `К.` objects spawn in the **centre lane** in both normal
+play and Auto Demo. Each glyph has a deterministic orientation; collision still
+uses real circular ball physics. Normal play uses the camera-recognized physical
+stickers to redirect them. In Auto Demo, one visible slanted synthetic sticker
+uses the exact same rectangle collision solver and deflects falling letters
+towards the moving left-side bucket. The bucket does not attract letters:
+interception is restricted by finite movement speed and bucket opening.
+
+For a hardware-free test:
+1. Open `http://127.0.0.1:8765/games` from the same computer.
+2. Select Createch, click **Preview Theme** or **Auto Demo**.
+3. The full scene appears inside the operator page. Use the link **Открыть
+   виртуальный проектор** for a fullscreen viewport. On loopback, the virtual
+   viewer acquires the existing local operator session without scanning a QR.
+4. The `Classic` theme remains available with the original visuals and physics.
+
+The CI pipeline additionally checks the synthetic sticker bounce and uploads
+an offscreen Qt-rendered PNG named `createch-projector-preview` to each
+Linux Actions run. That PNG is an actual projector-renderer output, not
+a concept illustration. Physical camera, screen warp and legibility require
+an on-site test before public operation.
+
+
+### Update the existing checkout and try the physical projector
+
+The original approved PNG is **part of `main`**; there is no separate sprite
+archive to install. Stop the old server before updating.
+
+**Manjaro (existing folder):**
+
+```bash
+cd ~/Загрузки/interactive-surface-test
+git fetch origin
+git switch main
+git pull --ff-only origin main
+sh start.sh
+```
+
+**Windows 10/11 CMD (existing folder):**
+
+```cmd
+cd /d "%USERPROFILE%\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+start.bat
+```
+
+Full Windows event and closed-lid instructions:
+[WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md).
+
+On the laptop, open `http://127.0.0.1:8765/games`, select **Createch**
+and use **Preview Theme** to verify the original director and bucket.
+Use **Auto Demo** to check the graphic and the redirected stream without
+camera hardware. To test the **real** interaction, select the camera and
+projector on the operator pages, complete four-point calibration, train the
+coloured physical sticker on the recognition page, and press
+**Запустить раунд** in /games (not Auto Demo). The original drawing is
+used in both Qt fullscreen projection and the browser viewer.
+
+Check that the actual bucket lip coincides with the hit region at the wall,
+the sticker angle deflects the centre stream toward the bucket, and the
+character stays sharp at the physical projection scale. The automated checks
+cannot validate lens distortion, lighting, camera latency, or wall alignment.

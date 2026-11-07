@@ -14,5 +14,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install Qt Linux runtime libraries
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update -qq && sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0
       - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q
+      - name: Render Createch projector golden frame
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python scripts/render_createch_preview.py
+      - name: Publish Createch projection preview
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: createch-projector-preview
+          path: artifacts/createch-projection-preview.png
