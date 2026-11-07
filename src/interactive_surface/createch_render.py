@@ -1,8 +1,8 @@
 """Createch event projection visuals (calibrated wall coordinates, 1600×1000).
 
 Visual scene is shared in design with the browser projector. Gameplay, collision
-and scoring are exclusively owned by game.py. Keep generated portrait optional
-to allow visual review independently of the deployment.
+and scoring are exclusively owned by game.py. The approved original PNG is the
+primary portrait asset on both physical and browser projectors.
 """
 from __future__ import annotations
 from pathlib import Path
@@ -22,10 +22,11 @@ _fallback = None
 def _sprite():
     global _portrait, _fallback
     if _portrait is None:
-        # Prefer the approved sharp portrait; retain the bundled low-res
-        # portrait as an offline fallback for installations without the HQ asset.
+        # Use the unmodified original uploaded to GitHub. Legacy HQ and the
+        # old bundled sprite are fallbacks only, never the primary artwork.
         _portrait = QImage()
-        for filename in ("createch-director-hq.png", "createch-director.png"):
+        for filename in ("createch-director-original.png",
+                         "createch-director-hq.png", "createch-director.png"):
             file = ASSET_ROOT / filename
             if file.is_file():
                 candidate = QImage(str(file))
@@ -87,11 +88,12 @@ def letter(p, x, y, radius, angle=0):
 def _actor(p, goal, hits):
     x, y = goal[0]*1600, goal[1]*1000
     img, fallback = _sprite()
-    # The selected user's original transparent portrait is stored as a
-    # high-resolution *upper-body* crop; render smaller than before and keep
-    # the real bucket opening aligned with the physics capture point.
-    w, h = 205., 276.
-    rect = QRectF(x - .71*w, y - .53*h, w, h)
+    # Original 1086×1448 full-body PNG: bucket lip centre is around
+    # (0.61, 0.31) in the *original canvas*, not its opaque bounding box.
+    # Align this point to the collision goal used by game.py (the body,
+    # hands and rim consequently move as a single sprite).
+    w, h = 207., 276.
+    rect = QRectF(x - .61*w, y - .31*h, w, h)
     p.save()
     if not img.isNull():
         # Native-resolution portrait, downsampled with smooth resampling for
