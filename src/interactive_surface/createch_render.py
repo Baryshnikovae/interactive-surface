@@ -61,6 +61,7 @@ def _frame(p, dark):
 
 def letter(p, x, y, radius, angle=0):
     p.save()
+    p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     p.translate(x,y)
     p.rotate(angle)
     scale = radius / 29.
@@ -68,10 +69,10 @@ def letter(p, x, y, radius, angle=0):
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(PINK)
     p.drawPolygon(QPolygonF([QPointF(a,b) for a,b in
-        [(-26,-23),(-13,-23),(-13,-4),(-6,-4),(10,-23),(26,-23),
-        (7,-2),(25,21),(9,21),(-5,5),(-13,5),(-13,21),(-26,21)]]))
-    # The dot is detached and visibly rectangular even at small sizes.
-    p.drawRect(QRectF(17,11,12,11))
+        [(-25,-21),(-13,-21),(-13,-4),(-7,-4),(7,-21),(22,-21),
+        (3,-1),(21,20),(7,20),(-7,3),(-13,3),(-13,20),(-25,20)]]))
+    # The detached rectangular dot never overlaps the angled leg of the К.
+    p.drawRect(QRectF(27,9,10,11))
     p.restore()
 
 
@@ -134,7 +135,7 @@ def paint_createch(p: QPainter, snapshot: dict, dark=True):
     _text(p,f"{snapshot.get('score',0):02d} / {snapshot.get('target',5):02d}",
           (83,125,310,62),32,fg)
     if snapshot.get("demo"):
-        _text(p,"AUTO DEMO  •  СТИКЕР ОТКЛОНЯЕТ БУКВУ",
+        _text(p,"AUTO DEMO  •  ПОВЕРНИ СТИКЕР → ПОПАДИ В ВЕДРО",
               (1000,107,520,45),18,"#ff8bd9",QFont.Weight.Bold,Qt.AlignmentFlag.AlignRight)
     elif phase=="preview":
         _text(p,"PREVIEW  •  CREATECH",(1010,107,505,45),18,"#ff8bd9",QFont.Weight.Bold,Qt.AlignmentFlag.AlignRight)
