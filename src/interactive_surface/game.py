@@ -140,7 +140,7 @@ class HoleRound:
         self._goal_phase = 0.
         self.randomize_goal()
         if self.demo and self.settings.theme == "createch":
-            # A real-sized demonstration sticker is placed in the same physics
+            # A compact demonstration sticker is placed in the same physics
             # obstacle collection as the detected physical stickers.
             # The catcher is fixed to the side lane; it does not follow balls.
             self.base_goal_x = 425.
@@ -151,11 +151,11 @@ class HoleRound:
 
     @staticmethod
     def _sticker_corners(cx: float, cy: float, angle_deg: float) -> tuple:
-        """Small, camera-like 112×28 sticker rotated about its centre."""
+        """Compact 92×26 physical sticker, used by the real collision solver."""
         a = math.radians(angle_deg)
         ca, sa = math.cos(a), math.sin(a)
         return tuple((cx + xx*ca-yy*sa, cy + xx*sa+yy*ca)
-                     for xx,yy in ((-56.,-14.),(56.,-14.),(56.,14.),(-56.,14.)))
+                     for xx,yy in ((-46.,-13.),(46.,-13.),(46.,13.),(-46.,13.)))
 
     def _update_demo_sticker(self) -> None:
         """Show a miss first, then turn one small sticker toward the bucket.
@@ -221,8 +221,8 @@ class HoleRound:
         # Demo and normal gameplay have the same autonomous goal motion.
         # Demo amplitude is small: the PLAYER/STICKER must aim; the bucket
         # NEVER pursues the stream.
-        amplitude_x = min(22. if self.demo else 75., base_x-lo, hi-base_x)
-        amplitude_y = min(12. if self.demo else 80., base_y-540., 890.-base_y)
+        amplitude_x = min(22. if self.demo else (32. if self.settings.theme == "createch" else 75.), base_x-lo, hi-base_x)
+        amplitude_y = min(12. if self.demo else (18. if self.settings.theme == "createch" else 80.), base_y-540., 890.-base_y)
         self.goal_x = base_x + amplitude_x * math.sin(self._goal_phase)
         self.goal_y = base_y + amplitude_y * math.sin(self._goal_phase*1.3 + .8)
 
@@ -312,8 +312,9 @@ class HoleRound:
         if self.demo and self.settings.theme == "createch":
             self._update_demo_sticker()
         self.spawn_clock += dt
-        # Demo must show the same dense stream as ordinary gameplay.
-        spawn_period = self.settings.spawn_interval
+        # Createch uses a visually continuous stream; Classic keeps its
+        # original operator-configured spawn rate and physics unchanged.
+        spawn_period = min(self.settings.spawn_interval, .28) if self.settings.theme == "createch" else self.settings.spawn_interval
         if self.spawn_clock >= spawn_period:
             self.spawn_clock -= spawn_period
             self._spawn()
