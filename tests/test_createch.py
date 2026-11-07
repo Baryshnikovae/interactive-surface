@@ -87,6 +87,14 @@ def test_preview_and_demo_api_without_calibration(tmp_path):
             portrait = client.get("/assets/createch-director.png")
             assert portrait.status_code == 200
             assert portrait.content.startswith(b"\x89PNG\r\n\x1a\n")
+            # The original GitHub asset is served untouched, with no
+            # transcoding, lossy resizing or separate ZIP deployment.
+            from interactive_surface import createch_render as renderer
+            original_path = renderer.ASSET_ROOT / "createch-director-original.png"
+            original_response = client.get("/assets/createch-director-original.png")
+            assert original_response.status_code == 200
+            assert original_response.headers["content-type"].startswith("image/png")
+            assert original_response.content == original_path.read_bytes()
             assert client.post("/api/game/stop", headers=headers, json={}).json()["phase"] == "idle"
             assert client.post("/api/game/preview", json={}).status_code == 401
     finally:
@@ -310,3 +318,40 @@ def test_physical_qt_renderer_prefers_high_quality_png(monkeypatch, tmp_path):
     image, _ = renderer._sprite()
     assert image.size().width() == 24
     assert image.pixelColor(0, 0) == QColor("#06aeff")
+
+
+def test_createch_prefers_exact_original_over_legacy_portraits(monkeypatch, tmp_path):
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtGui import QGuiApplication, QColor, QImage
+    from interactive_surface import createch_render as renderer
+
+    app = QGuiApplication.instance() or QGuiApplication([])
+    samples = [
+        ("createch-director-original.png", "#16cd23", (1086, 1448)),
+        ("createch-director-hq.png", "#132ed9", (48, 72)),
+        ("createch-director.png", "#c82324", (16, 24)),
+    ]
+    for filename, color, (width, height) in samples:
+        image = QImage(width, height, QImage.Format.Format_ARGB32)
+        image.fill(QColor(color))
+        assert image.save(str(tmp_path / filename))
+    monkeypatch.setattr(renderer, "ASSET_ROOT", tmp_path)
+    monkeypatch.setattr(renderer, "_portrait", None)
+    monkeypatch.setattr(renderer, "_fallback", None)
+    actual, _ = renderer._sprite()
+    assert (actual.width(), actual.height()) == (1086, 1448)
+    assert actual.pixelColor(0, 0) == QColor("#16cd23")
+
+
+def test_browser_viewer_uses_exact_original_and_matches_qt_bucket_alignment():
+    from interactive_surface import createch_render as renderer
+    source = (renderer.ASSET_ROOT / "virtual.html").read_text(encoding="utf-8")
+    assert source.index("/assets/createch-director-original.png") < source.index(
+        "/assets/createch-director-hq.png")
+    assert "const w=207,h=276,x=gx-.61*w,y=gy-.31*h" in source
+    import inspect
+    qt_source = inspect.getsource(renderer._actor)
+    assert "w, h = 207., 276." in qt_source
+    assert "x - .61*w, y - .31*h" in qt_source
+    assert "cc.imageSmoothingQuality='high'" in source
