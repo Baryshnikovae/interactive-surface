@@ -10,6 +10,8 @@ from interactive_surface.game import Ball, DT, GameEngine, GameSettings, HoleRou
 def test_theme_defaults_and_validation():
     assert GameSettings.parse({}).theme == "classic"
     assert GameSettings.parse({"theme": "createch"}).theme == "createch"
+    assert GameSettings.parse({"theme": "createch"}).ball_radius == 19
+    assert GameSettings.parse({}).ball_radius == 14
     with pytest.raises(ValueError):
         GameSettings.parse({"theme": "other"})
 
@@ -187,3 +189,87 @@ def test_createch_is_a_center_stream_without_auto_aiming():
         "Without a sticker the stream must not aim itself at the director"
     )
     assert branded.score == 0, "The collector must never move under a falling stream"
+
+
+def test_real_createch_gameplay_uses_detected_sticker_not_demo_assist():
+    """A normal round must score from the *real recognition polygon* only.
+
+    Explicitly run with demo=False, no synthetic sticker, no camera and no
+    browser. This is the same rectangular collision code used by the server
+    after the real camera reports four wall-normalized corners.
+    """
+    settings = GameSettings.parse({
+        "theme": "createch", "goal_manual": True,
+        "goal_x": 425. / 1600., "goal_y": .72,
+        "moving_goal": False, "target_hits": 50,
+    })
+    assert settings.ball_radius == 19
+    real = GameEngine(lambda: [], lambda _: None,
+                      config=settings.__dict__, start_worker=False)
+    try:
+        state = real.start()
+        assert state["phase"] == "playing" and state["demo"] is False
+        assert real.round.obstacles == {}
+        for _ in range(120 * 3):
+            real.tick(DT)
+        assert real.round.score == 0, "Without a sticker, letters must miss"
+        corners = HoleRound._sticker_corners(800., 520., -50.)
+        real.round.set_obstacles([{
+            "id": 412, "corners": [[x / 1600., y / 1000.] for x, y in corners]
+        }])
+        assert 412 in real.round.obstacles
+        assert not real.round.demo
+        for _ in range(120 * 18):
+            real.tick(DT)
+        assert real.round.total_spawned >= 30
+        assert real.round.score > 0, (
+            "Real Createch must catch using the actual physical sticker collider"
+        )
+        assert real.state()["settings"]["ball_radius"] == 19
+    finally:
+        real.close()
+
+
+def test_real_projector_createch_uses_same_game_state_and_win_text(monkeypatch):
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtGui import QGuiApplication, QImage, QPainter
+    from interactive_surface import createch_render as renderer
+    from interactive_surface.game_render import paint_game
+
+    app = QGuiApplication.instance() or QGuiApplication([])
+    received = []
+    original = renderer._text
+
+    def capture(painter, text, *args, **kwargs):
+        received.append(text)
+        return original(painter, text, *args, **kwargs)
+
+    monkeypatch.setattr(renderer, "_text", capture)
+    frame = QImage(800, 500, QImage.Format.Format_ARGB32)
+    frame.fill(0)
+    snapshot = {"phase": "won", "settings": {"theme": "createch",
+                "cycle_mode": "repeat"}, "score": 5, "target": 5,
+                "goal": [.265625, .72, 31.], "balls": []}
+    painter = QPainter(frame)
+    try:
+        paint_game(painter, snapshot,
+                   [[0., 0.], [1., 0.], [1., 1.], [0., 1.]],
+                   frame.width(), frame.height())
+    finally:
+        painter.end()
+    assert "ОТЛИЧНО!" in received
+    assert "Следующий раунд скоро начнётся" in received
+    assert "ПОЙМАНО!" not in received
+
+
+def test_live_theme_switch_does_not_change_classic_size():
+    game = GameEngine(lambda: [], lambda _: None, start_worker=False)
+    try:
+        assert game.state()["settings"]["ball_radius"] == 14
+        updated = game.configure({"theme": "createch"})
+        assert updated["settings"]["ball_radius"] == 19
+        updated = game.configure({"theme": "classic"})
+        assert updated["settings"]["ball_radius"] == 14
+    finally:
+        game.close()
