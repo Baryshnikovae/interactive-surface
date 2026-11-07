@@ -273,3 +273,19 @@ def test_live_theme_switch_does_not_change_classic_size():
         assert updated["settings"]["ball_radius"] == 14
     finally:
         game.close()
+
+
+def test_controller_restores_smaller_glyphs_before_browser_opens(tmp_path):
+    from interactive_surface.controller import Controller
+    from interactive_surface.storage import Store
+
+    for previous_radius in (14, 23):
+        store = Store(tmp_path / f"profile-{previous_radius}.json")
+        store.write({"game": {"theme": "createch",
+                              "ball_radius": previous_radius}})
+        controller = Controller(store)
+        try:
+            assert controller.game.state()["settings"]["theme"] == "createch"
+            assert controller.game.state()["settings"]["ball_radius"] == 19
+        finally:
+            controller.close()
