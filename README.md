@@ -228,20 +228,24 @@ The game operator page at **/games** has a **Theme** selector (Classic / Createc
 Classic preserves the original balls and hole. Createch uses a fuchsia frame,
 heavy `КРЕАТЕХ.` wordmark, falling angular `К.` glyphs, and a stylized pixel-art
 director with a magenta catching bucket. Physics still uses circular ball
-colliders; the theme only changes visuals and the bucket capture condition.
+colliders; Createch has a smaller 19-pixel default collider and a bucket
+capture condition, while Classic's original mode remains unchanged.
 
 **Preview Theme** shows a frozen composition. **Auto Demo** uses the same
-120 Hz game engine and simulates falling glyphs and a bounded, moving
-auto-catcher without needing a camera, colour learning, or calibration.
+120 Hz game engine and simulates falling glyphs deflected by a rotating
+rectangular sticker. The director drifts only slightly; it does not chase
+falling letters. The demo needs no camera, colour learning, or calibration.
 Use **Выйти из просмотра** to stop. The virtual projector lives at
 `/virtual-projector`; open it in another browser tab to view the complete
 scene. On a real projector, the same theme is painted by Qt, including
-the installed `static/createch-director.svg` sprite.
+the same `static/createch-director-original.png` file used by the web
+projector. The SVG and older PNG variants are offline fallbacks only.
 
 The selected theme persists in `theme-settings.json` beside the local
 calibration profile, even when the calibration profile is not created yet.
-The SVG sprite is an original editable pixel-art interpretation and
-should be visually approved against the director reference before an event.
+The director's original full-resolution transparent PNG is committed directly
+to GitHub and used without modifying the source file. Confirm character scale
+and the collision point at the real bucket rim during hardware calibration.
 
 **Safety:** Preview / Auto Demo are for appearance testing. Neither
 qualifies the camera, real-world mapping, collision alignment on physical
@@ -257,8 +261,8 @@ The full-size browser scene is available at
 `http://127.0.0.1:8765/virtual-projector?showcase=1` without calibrated hardware.
 In this showcase URL the scene uses a full-viewport projection quad only for
 browser visualization; real projection remains calibrated separately.
-Createch switches to a larger physical ball radius (38 by default) so K.
-glyphs are readable while collisions still use their corresponding circles.
+Createch uses a 19 px default glyph radius in both real play and demo,
+including after migrating older local theme settings. Classic keeps 14 px.
 Classic restores the previous Classic radius when switched back in the UI.
 
 
@@ -266,10 +270,11 @@ Classic restores the previous Classic radius when switched back in the UI.
 
 The Createch projection is composed by `createch_render.py` for actual Qt fullscreen
 projection and by the matching canvas renderer in `static/virtual.html`. The
-transparent portrait asset `static/createch-director.png` is included in the
-Python package. The renderer crops to the upper body to make the face readable
-and anchors the bucket opening to the existing catch coordinates; the SVG file
-is now only a fallback.
+transparent, full-resolution, user-approved image
+`static/createch-director-original.png` is included in the Python package.
+Both Qt and browser render this untouched asset, smoothly downscaling it in
+the scene. Its bucket lip is aligned with the physics goal, and older PNG/SVG
+assets remain as fallbacks.
 
 The small angular `К.` objects spawn in the **centre lane** in both normal
 play and Auto Demo. Each glyph has a deterministic orientation; collision still
@@ -292,3 +297,31 @@ an offscreen Qt-rendered PNG named `createch-projector-preview` to each
 Linux Actions run. That PNG is an actual projector-renderer output, not
 a concept illustration. Physical camera, screen warp and legibility require
 an on-site test before public operation.
+
+
+### Update the existing test checkout and try the physical projector
+
+The original approved PNG is **part of this Git branch**; there is no separate
+sprite archive to install. On Manjaro, stop the old server and run:
+
+```bash
+cd ~/Загрузки/interactive-surface-test
+git fetch origin
+git switch feature/createch-theme-auto-demo-20261106
+git pull --ff-only origin feature/createch-theme-auto-demo-20261106
+sh start.sh
+```
+
+On the laptop, open `http://127.0.0.1:8765/games`, select **Createch**
+and use **Preview Theme** to verify the original director and bucket.
+Use **Auto Demo** to check the graphic and the redirected stream without
+camera hardware. To test the **real** interaction, select the camera and
+projector on the operator pages, complete four-point calibration, train the
+coloured physical sticker on the recognition page, and press
+**Запустить раунд** in /games (not Auto Demo). The original drawing is
+used in both Qt fullscreen projection and the browser viewer.
+
+Check that the actual bucket lip coincides with the hit region at the wall,
+the sticker angle deflects the centre stream toward the bucket, and the
+character stays sharp at the physical projection scale. The automated checks
+cannot validate lens distortion, lighting, camera latency, or wall alignment.
