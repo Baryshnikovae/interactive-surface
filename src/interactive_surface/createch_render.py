@@ -94,6 +94,9 @@ def _actor(p, goal, hits):
     rect = QRectF(x - .71*w, y - .53*h, w, h)
     p.save()
     if not img.isNull():
+        # Native-resolution portrait, downsampled with smooth resampling for
+        # the calibrated projector transform; no nearest-neighbour pixelation.
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         p.drawImage(rect, img)
     elif fallback and fallback.isValid():
@@ -152,7 +155,13 @@ def paint_createch(p: QPainter, snapshot: dict, dark=True):
     elif phase=="preview":
         _text(p,"PREVIEW  •  CREATECH",(1010,107,505,45),18,"#ff8bd9",QFont.Weight.Bold,Qt.AlignmentFlag.AlignRight)
     if phase=="won":
-        p.fillRect(QRectF(485,375,630,145),QColor("#180920"))
-        _text(p,"ПОЙМАНО!",(510,380,590,128),62,"#ff67ce",
+        # Match the Classic game's finish text and automatic/manual captions.
+        p.fillRect(QRectF(325,365,950,255),QColor("#180920"))
+        _text(p,"ОТЛИЧНО!",(350,405,900,100),72,"#ff67ce",
               QFont.Weight.Black,Qt.AlignmentFlag.AlignCenter)
+        cycle = (snapshot.get("settings") or {}).get("cycle_mode","manual")
+        caption = ("Следующий раунд скоро начнётся" if cycle != "manual"
+                   else "Новый раунд запускается с пульта")
+        _text(p,caption,(390,515,820,75),28,"#ffebf9",
+              QFont.Weight.Medium,Qt.AlignmentFlag.AlignCenter)
     p.restore()
