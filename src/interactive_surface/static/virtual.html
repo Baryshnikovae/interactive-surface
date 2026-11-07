@@ -5,8 +5,8 @@ function projectorMap(quad){const [p0,p1,p2,p3]=quad;const dx1=p1[0]-p2[0],dx2=p
 function warpedRing(map,x,y,r,fill,stroke,width){gtx.beginPath();for(let i=0;i<=48;i++){let a=i*Math.PI*2/48;const [px,py]=map(x+r*Math.cos(a)/1600,y+r*Math.sin(a)/1000);if(i)gtx.lineTo(px,py);else gtx.moveTo(px,py)}gtx.closePath();if(fill){gtx.fillStyle=fill;gtx.fill()}if(stroke){gtx.strokeStyle=stroke;gtx.lineWidth=width;gtx.stroke()}}
 // Generated portrait is packaged with the app; old SVG is an offline fallback.
 const director = new Image();
-director.onerror = () => {if(!director.src.endsWith('.svg'))director.src='/assets/createch-director.svg'};
-director.src='/assets/createch-director.png';
+director.onerror = () => {if(!director.src.endsWith('.svg'))director.src='/assets/createch-director.svg?v=2'};
+director.src='/assets/createch-director.png?v=2';
 if(params.has('showcase')){document.body.classList.add('showcase');document.querySelector('.tip').style.display='none'}
 
 function createchPaint(map, state, dark, dpr) {
@@ -31,7 +31,7 @@ function createchPaint(map, state, dark, dpr) {
  word('01 / INTERACTIVE PLAY',1513,75,16,'#c9a6c3','right','500');
  word('КРЕАТЕХ.',1515,902,70,pink,'right','900');
  word(String(state.score||0).padStart(2,'0')+' / '+String(state.target||5).padStart(2,'0'),84,164,32,dark?'#ffebf9':'#421935');
- if(state.demo)word('AUTO DEMO / ОТСКОК ОТ СТИКЕРА',1510,141,19,soft,'right');
+ if(state.demo)word('AUTO DEMO / ПОВЕРНИ СТИКЕР → ВЕДРО',1510,141,19,soft,'right');
  else if(state.phase==='preview')word('PREVIEW / CREATECH',1510,141,19,soft,'right');
 
  const demoStickers=state.demo_stickers||[];
@@ -63,8 +63,8 @@ function createchPaint(map, state, dark, dpr) {
    if(y<120||y>940)continue;
    const scale=r/29,angle=((b[5]??0)*Math.PI/180);
    const rot=(ax,ay)=>[x+scale*(ax*Math.cos(angle)-ay*Math.sin(angle)),y+scale*(ax*Math.sin(angle)+ay*Math.cos(angle))];
-   path([[-26,-23],[-13,-23],[-13,-4],[-6,-4],[10,-23],[26,-23],[7,-2],[25,21],[9,21],[-5,5],[-13,5],[-13,21],[-26,21]].map(([a,b])=>rot(a,b)),pink,0,pink);
-   path([[17,11],[29,11],[29,22],[17,22]].map(([a,b])=>rot(a,b)),pink,0,pink);
+   path([[-25,-21],[-13,-21],[-13,-4],[-7,-4],[7,-21],[22,-21],[3,-1],[21,20],[7,20],[-7,3],[-13,3],[-13,20],[-25,20]].map(([a,b])=>rot(a,b)),pink,0,pink);
+   path([[27,9],[37,9],[37,20],[27,20]].map(([a,b])=>rot(a,b)),pink,0,pink);
  }
  if(state.phase==='won'){path([[480,375],[1120,375],[1120,520],[480,520]],pink,0,'#180920');word('ПОЙМАНО!',800,468,62,soft,'center','900')}
 }
