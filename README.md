@@ -1,6 +1,6 @@
 # Interactive Surface
 
-**Event test version 0.4.1: calibration, physical-object recognition, and ball game.**
+**Event test version 0.4.1: calibration, object recognition, Classic game and Createch theme with the original director PNG.**
 
 **Windows event setup (operate with the laptop lid closed from a phone):** [WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md). The optional [prepare-event-windows.bat](prepare-event-windows.bat) configures AC lid/sleep and a Private-only LAN firewall rule; read the guide before running it as administrator.
 
@@ -10,7 +10,26 @@ Local operator UI for camera/projector calibration, colour recognition and the *
 
 ## Быстрый старт — всегда из `main`
 
-**Windows (Command Prompt):**
+**Windows 10/11 — обновить проект, который уже есть на компьютере (CMD):**
+
+Сначала останови старый сервер клавишами `Ctrl+C`, затем выполни:
+
+```cmd
+cd /d "%USERPROFILE%\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+start.bat
+```
+
+Это обновляет **существующую папку**, включая оригинальный файл
+`src/interactive_surface/static/createch-director-original.png`.
+Заново клонировать проект или отдельно загружать PNG/ZIP не нужно.
+Если `git switch` или `git pull` сообщит о локальных изменениях, не удаляй
+их — проверь `git status` и сохрани свою работу перед продолжением.
+Если проект находится в другой папке, используй её путь вместо указанного выше.
+
+**Windows — первый запуск, когда папки проекта ещё нет (CMD):**
 
 ```cmd
 cd /d "%USERPROFILE%"
@@ -18,6 +37,25 @@ git clone https://github.com/Baryshnikovae/interactive-surface.git
 cd interactive-surface
 start.bat
 ```
+
+**Windows PowerShell (существующая папка):**
+
+```powershell
+cd "$env:USERPROFILE\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+.\start.bat
+```
+
+`start.bat` сам создаёт `.venv` и устанавливает зависимости при первой
+установке (необходим Python 3.10+ с `py` launcher; предпочтительно 3.12).
+Пульт на ноутбуке: `http://127.0.0.1:8765/games`.
+Для просмотра полного оформления: `http://127.0.0.1:8765/virtual-projector?showcase=1`.
+Выбери тему **Createch**, затем **Preview Theme** или **Auto Demo**.
+Для настоящей игры сначала выбери камеру и физический проектор,
+заверши калибровку и обучение стикера и нажми **Запустить раунд**.
+`Auto Demo` не использует настоящую камеру.
 
 **Linux / Manjaro:**
 
@@ -174,16 +212,30 @@ stops gameplay until it has been checked again.
 
 ### Installing and running from `main`
 
-Linux / Manjaro:
+**Windows CMD — update existing checkout:**
+
+```cmd
+cd /d "%USERPROFILE%\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+start.bat
+```
+
+For a first Windows installation, see [Быстрый старт](#быстрый-старт--всегда-из-main)
+and [WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md).
+
+**Linux / Manjaro — update existing checkout (stop the previous server first):**
 
 ```bash
-git clone https://github.com/Baryshnikovae/interactive-surface.git
-cd interactive-surface
+cd ~/Загрузки/interactive-surface-test
+git fetch origin
+git switch main
+git pull --ff-only origin main
 sh start.sh
 ```
 
-Windows: clone the default `main` branch and run `start.bat`. The existing scripts
-install the declared Python dependencies when needed.
+Both scripts install the declared Python dependencies when necessary.
 
 Automated tests:
 
@@ -210,12 +262,14 @@ LAN. There is no soundtrack or image upload in this milestone.
 - Stored colour settings are independent for black and white projected backgrounds. Selecting the same camera, video resolution and display on a subsequent launch restores compatible calibration and colour automatically, while changed hardware requires checking the setup.
 - The hole appears at a newly randomized **lower-left/lower-right location** each round, alternating sides without entering the central drop corridor. Tapping the map manually pins the hole; choose **Случайное положение каждый раунд** to restore randomness. The projector no longer displays the top «ЛУНКА» heading.
 
-Update a previously cloned Manjaro checkout (stop the current server first):
+Update a previously cloned Manjaro checkout (stop the current server first;
+preserve local work rather than resetting the branch):
 
 ```bash
 cd ~/Загрузки/interactive-surface-test
-git fetch origin main
-git switch -C main origin/main
+git fetch origin
+git switch main
+git pull --ff-only origin main
 sh start.sh
 ```
 
@@ -299,18 +353,33 @@ a concept illustration. Physical camera, screen warp and legibility require
 an on-site test before public operation.
 
 
-### Update the existing test checkout and try the physical projector
+### Update the existing checkout and try the physical projector
 
-The original approved PNG is **part of this Git branch**; there is no separate
-sprite archive to install. On Manjaro, stop the old server and run:
+The original approved PNG is **part of `main`**; there is no separate sprite
+archive to install. Stop the old server before updating.
+
+**Manjaro (existing folder):**
 
 ```bash
 cd ~/Загрузки/interactive-surface-test
 git fetch origin
-git switch feature/createch-theme-auto-demo-20261106
-git pull --ff-only origin feature/createch-theme-auto-demo-20261106
+git switch main
+git pull --ff-only origin main
 sh start.sh
 ```
+
+**Windows 10/11 CMD (existing folder):**
+
+```cmd
+cd /d "%USERPROFILE%\interactive-surface"
+git fetch origin
+git switch main
+git pull --ff-only origin main
+start.bat
+```
+
+Full Windows event and closed-lid instructions:
+[WINDOWS_EVENT_SETUP.md](WINDOWS_EVENT_SETUP.md).
 
 On the laptop, open `http://127.0.0.1:8765/games`, select **Createch**
 and use **Preview Theme** to verify the original director and bucket.
