@@ -6,7 +6,7 @@ function warpedRing(map,x,y,r,fill,stroke,width){gtx.beginPath();for(let i=0;i<=
 // Exact approved portrait is installed separately as a crisp transparent PNG;
 // older installations remain functional with the bundled low-res fallback.
 const director = new Image();
-const directorFiles = ['/assets/createch-director-hq.png?v=3', '/assets/createch-director.png?v=3', '/assets/createch-director.svg?v=3'];
+const directorFiles = ['/assets/createch-director-hq.png?v=4', '/assets/createch-director.png?v=4', '/assets/createch-director.svg?v=4'];
 let directorFileIndex = 0;
 director.onerror = () => {directorFileIndex++; if(directorFileIndex < directorFiles.length)director.src = directorFiles[directorFileIndex]};
 director.src = directorFiles[0];
@@ -50,7 +50,7 @@ function createchPaint(map, state, dark, dpr) {
     const w=205,h=276,x=gx-.71*w,y=gy-.53*h;
     const a=pt(x,y),b=pt(x+w,y),c=pt(x,y+h);
     if(director.complete&&director.naturalWidth){
-      cc.save();cc.imageSmoothingEnabled=true;
+      cc.save();cc.imageSmoothingEnabled=true;cc.imageSmoothingQuality='high';
       cc.transform((b[0]-a[0])/w,(b[1]-a[1])/w,
         (c[0]-a[0])/h,(c[1]-a[1])/h,a[0],a[1]);
       cc.drawImage(director,0,0,w,h);
@@ -69,7 +69,7 @@ function createchPaint(map, state, dark, dpr) {
    path([[-25,-21],[-13,-21],[-13,-4],[-7,-4],[7,-21],[22,-21],[3,-1],[21,20],[7,20],[-7,3],[-13,3],[-13,20],[-25,20]].map(([a,b])=>rot(a,b)),pink,0,pink);
    path([[27,9],[37,9],[37,20],[27,20]].map(([a,b])=>rot(a,b)),pink,0,pink);
  }
- if(state.phase==='won'){path([[480,375],[1120,375],[1120,520],[480,520]],pink,0,'#180920');word('ПОЙМАНО!',800,468,62,soft,'center','900')}
+ if(state.phase==='won'){path([[325,365],[1275,365],[1275,620],[325,620]],pink,0,'#180920');word('ОТЛИЧНО!',800,485,72,soft,'center','900');const caption=state.settings?.cycle_mode==='manual'?'Новый раунд запускается с пульта':'Следующий раунд скоро начнётся';word(caption,800,565,28,dark?'#ffebf9':'#421935','center','500')}
 }
 function animateGame(){if(gameVisual){const s=gameVisual.game||{},a=s.settings||{},quad=gameVisual.quad;const rw=window.innerWidth,rh=window.innerHeight,dpr=Math.min(2,window.devicePixelRatio||1);const nw=Math.round(rw*dpr),nh=Math.round(rh*dpr);if(gameCanvas.width!==nw||gameCanvas.height!==nh){gameCanvas.width=nw;gameCanvas.height=nh}gtx.fillStyle=gameVisual.background==='white'?'#fff':'#000';gtx.fillRect(0,0,nw,nh);if(quad&&s.phase){const map=projectorMap(quad),dark=gameVisual.background!=='white',accent=dark?'#998aff':'#6d43a3',color=a.ball_color||'#70e9ff';if(a.theme==='createch'){createchPaint(map,s,dark,dpr);requestAnimationFrame(animateGame);return;}if(s.phase==='playing'||s.phase==='won'){const goal=s.goal||[.78,.72,45];warpedRing(map,goal[0],goal[1],goal[2]*1.14,dark?'#191127':'#eae3ff',accent,Math.max(2,dpr*4));warpedRing(map,goal[0],goal[1],goal[2]*.61,null,dark?'#c5bfff':'#705aa6',Math.max(1,dpr*2))}const seconds=Math.min(.035,Math.max(0,(performance.now()-gameReceived)/1000));for(const b of (s.balls||[])){const x=b[0]+b[3]*seconds,y=b[1]+b[4]*seconds,r=b[2];warpedRing(map,x,y,r,color,a.visual_style==='flat'?(dark?'#fff':'#1a3650'):color,Math.max(1,dpr));if(a.ball_design==='orbit')warpedRing(map,x,y,r*.58,null,'#fff',Math.max(1,dpr));if(a.ball_design==='comet'){const [px,py]=map(x,y),[qx,qy]=map(x-b[3]*.03,y-b[4]*.03);gtx.strokeStyle=color;gtx.lineWidth=3*dpr;gtx.beginPath();gtx.moveTo(px,py);gtx.lineTo(qx,qy);gtx.stroke()}}if(s.phase==='playing'){const [px,py]=map(.03,.06);gtx.fillStyle=dark?'#eff':'#234';gtx.font='bold '+Math.max(16,27*dpr)+'px system-ui';gtx.fillText(s.score+' / '+s.target,px,py)}if(s.phase==='won'){const [px,py]=map(.33,.5);gtx.fillStyle=dark?'#dbf8ff':'#243654';gtx.font='bold '+Math.max(24,60*dpr)+'px system-ui';gtx.fillText('ОТЛИЧНО!',px,py)}}}requestAnimationFrame(animateGame)}requestAnimationFrame(animateGame);
 
