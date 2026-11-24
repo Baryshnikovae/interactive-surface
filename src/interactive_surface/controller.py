@@ -257,17 +257,17 @@ class Controller:
             self.projector.set_mode("game")
             return result
 
-    def preview_game(self) -> dict:
+    def preview_game(self, game: str = "hole") -> dict:
         # Visual preview is intentionally possible before camera calibration.
         with self.lock:
-            result = self.game.preview()
+            result = self.game.preview(game)
             self.projector.set_mode("game")
             return result
 
-    def start_demo(self) -> dict:
+    def start_demo(self, game: str = "hole") -> dict:
         # Demo uses synthetic spawning and needs no camera or recognition.
         with self.lock:
-            result = self.game.start_demo()
+            result = self.game.start_demo(game)
             self.projector.set_mode("game")
             return result
 

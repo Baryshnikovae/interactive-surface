@@ -55,6 +55,11 @@ def paint_game(p: QPainter, snapshot: dict, quad: list, display_w: int, display_
     p.setTransform(t, False)
     p.setClipRect(QRectF(0, 0, 1600, 1000))
     settings = snapshot.get("settings") or {}
+    if snapshot.get("game") == "jump":
+        from .jump_render import paint_jump
+        paint_jump(p, snapshot, dark)
+        p.restore()
+        return
     if settings.get("theme") == "createch":
         from .createch_render import paint_createch
         paint_createch(p, snapshot, dark)

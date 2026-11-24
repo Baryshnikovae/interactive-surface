@@ -14,6 +14,8 @@ import threading
 import time
 from typing import Callable
 
+from .jump_game import JumpRound
+
 W, H = 1600.0, 1000.0
 DT = 1.0 / 120.0
 SPAWN_X = 800.0
@@ -22,7 +24,7 @@ GOAL_SIDES = ((180.0, 515.0), (1085.0, 1420.0))
 PALETTE = ("solid", "orbit", "comet")
 MODES = ("manual", "repeat", "sequence")
 THEMES = ("classic", "createch")
-AVAILABLE_GAMES = ("hole",)
+AVAILABLE_GAMES = ("hole", "jump")
 
 
 @dataclass
@@ -41,6 +43,12 @@ class GameSettings:
     spawn_interval: float = 0.42
     max_balls: int = 65
     playlist: tuple[str, ...] = ("hole",)
+    jump_theme: str = "cloud"
+    jump_difficulty: str = "normal"
+    jump_height: int = 1650
+    jump_coins: int = 12
+    jump_sound: bool = True
+    jump_auto_restart: bool = True
 
     @classmethod
     def parse(cls, data: dict) -> "GameSettings":
@@ -73,6 +81,16 @@ class GameSettings:
                 raise ValueError("Режим размещения лунки должен быть логическим")
             elif key == "max_balls" and (type(value) is not int or not 10 <= value <= 100):
                 raise ValueError("Ограничение шариков должно быть от 10 до 100")
+            elif key == "jump_theme" and value not in ("cloud", "coffee", "neon"):
+                raise ValueError("Неизвестное оформление SkyHop")
+            elif key == "jump_difficulty" and value not in ("easy", "normal", "hard"):
+                raise ValueError("Неизвестная сложность SkyHop")
+            elif key == "jump_height" and (type(value) is not int or not 1100 <= value <= 2800):
+                raise ValueError("Высота SkyHop должна быть от 1100 до 2800")
+            elif key == "jump_coins" and (type(value) is not int or not 4 <= value <= 24):
+                raise ValueError("Количество монет должно быть от 4 до 24")
+            elif key in ("jump_sound", "jump_auto_restart") and type(value) is not bool:
+                raise ValueError("Некорректный переключатель SkyHop")
             elif key == "playlist":
                 if not isinstance(value, (list, tuple)) or not value or any(x not in AVAILABLE_GAMES for x in value):
                     raise ValueError("Список игр содержит неизвестную игру")
@@ -384,11 +402,11 @@ class GameEngine:
         self.objects_provider = objects_provider
         self.publish = publish
         self.settings = GameSettings.parse(config or {})
-        self.available_games = {"hole": "Шарики и лунка"}
+        self.available_games = {"hole": "Шарики и лунка", "jump": "SkyHop — Прыжки со стикером"}
         self.current_game = "hole"
         self.phase = "idle"
         self.demo = False
-        self.round: HoleRound | None = None
+        self.round: HoleRound | JumpRound | None = None
         self.rounds = 0
         self._complete_at = 0.
         self._last_obstacles = -1.
@@ -413,8 +431,11 @@ class GameEngine:
         if game not in self.available_games:
             raise ValueError("Неизвестная игра")
         self.current_game = game
-        self.round = HoleRound(self.settings, random_seed=(20261106 + self.rounds) if demo else None, demo=demo)
-        if not self.settings.goal_manual and not demo:
+        if game == "jump":
+            self.round = JumpRound(self.settings, demo=demo)
+        else:
+            self.round = HoleRound(self.settings, random_seed=(20261106 + self.rounds) if demo else None, demo=demo)
+        if game == "hole" and not self.settings.goal_manual and not demo:
             # Keep Createch's actor left of the bottom-right wordmark.
             self.round.randomize_goal(side=0 if self.settings.theme == "createch" else self.rounds % 2)
         self.phase = "playing"
@@ -429,10 +450,18 @@ class GameEngine:
             self._start_locked(game)
             return self.state()
 
-    def preview(self) -> dict:
+    def preview(self, game: str = "hole") -> dict:
         """Render a frozen theme composition without starting a real round."""
         with self.lock:
+            if game not in self.available_games:
+                raise ValueError("Неизвестная игра")
             self.demo = False
+            self.current_game = game
+            if game == "jump":
+                self.round = JumpRound(self.settings, preview=True)
+                self.phase = "preview"
+                self._snapshot = self._compose()
+                return self.state()
             self.round = HoleRound(self.settings, random_seed=42)
             if self.settings.theme == "createch":
                 self.round.base_goal_x = 425.
@@ -449,11 +478,11 @@ class GameEngine:
             self._snapshot = self._compose()
             return self.state()
 
-    def start_demo(self) -> dict:
-        """Continuously simulate real gameplay with a camera-free auto catcher."""
+    def start_demo(self, game: str = "hole") -> dict:
+        """Simulate genuine sticker-based gameplay without camera hardware."""
         with self.lock:
             self.demo = True
-            self._start_locked("hole", demo=True)
+            self._start_locked(game, demo=True)
             return self.state()
 
     def stop(self) -> dict:
@@ -474,7 +503,12 @@ class GameEngine:
                 data["goal_manual"] = True
             new = GameSettings.parse(data)
             self.settings = new
-            if self.round:
+            if isinstance(self.round, JumpRound):
+                if any(key in updates for key in ("jump_difficulty", "jump_height", "jump_coins")):
+                    self.round = JumpRound(new, demo=self.demo, preview=self.phase == "preview")
+                else:
+                    self.round.settings = new
+            elif self.round:
                 self.round.settings = new
                 self.round.goal_radius = 31. if new.theme == "createch" else 45.
                 # The manual position is immediately effective when movement is off.
@@ -501,11 +535,16 @@ class GameEngine:
                 if self.round.finished:
                     self.phase = "won"
                     self._complete_at = time.monotonic()
-            elif self.phase == "won" and self.round and (self.demo or self.settings.cycle_mode != "manual"):
-                if time.monotonic() - self._complete_at >= 2.7:
+                elif getattr(self.round, "failed", False):
+                    self.phase = "lost"
+                    self._complete_at = time.monotonic()
+            elif self.phase in ("won", "lost") and self.round and (
+                    self.demo or (self.current_game == "jump" and self.settings.jump_auto_restart)
+                    or (self.phase == "won" and self.settings.cycle_mode != "manual")):
+                if time.monotonic() - self._complete_at >= (1.5 if self.phase == "lost" else 3.0):
                     if self.demo:
-                        next_game = "hole"
-                    elif self.settings.cycle_mode == "sequence":
+                        next_game = self.current_game
+                    elif self.phase == "won" and self.settings.cycle_mode == "sequence":
                         playlist = list(self.settings.playlist)
                         pos = playlist.index(self.current_game) if self.current_game in playlist else -1
                         next_game = playlist[(pos+1) % len(playlist)]
