@@ -46,7 +46,7 @@ def main():
     print("\nCtrl+C — остановить сервер.\n",flush=True)
     if not args.no_browser:
         threading.Timer(1.25,lambda:webbrowser.open(f"http://127.0.0.1:{args.port}")).start()
-    uvicorn.run(app,host="0.0.0.0",port=args.port,log_level="warning")
+    uvicorn.run(app,host="0.0.0.0",port=args.port,log_level="warning",proxy_headers=False)
 
 
 if __name__=="__main__":
