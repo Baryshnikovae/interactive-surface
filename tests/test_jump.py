@@ -34,8 +34,8 @@ def test_jump_is_one_shot_and_steered_by_sticker_angle():
     settings = GameSettings.parse({})
     game = JumpRound(settings)
     # The sticker is positioned under a descending hero, just above his feet.
-    game.hero.x, game.hero.y = 800., 300.
-    game.hero.vy = -400.
+    game.hero.x, game.hero.y = 800., 340.
+    game.hero.vy = -650.
     game.hero.vx = 0.
     game.obstacles = {3: sticker_top(JumpRound._demo_object(800, 705, 18)["corners"])}
     game.step(DT)
