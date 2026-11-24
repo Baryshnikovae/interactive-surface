@@ -59,10 +59,28 @@ class SampleChoice(BaseModel):
     negative_regions: list[list[list[float]]] | None = None
 
 
+def _socket_ip(host: str):
+    address = ipaddress.ip_address(host.split("%", 1)[0])
+    return getattr(address, "ipv4_mapped", None) or address
+
+
 def _loopback(request: Request) -> bool:
+    """Recognize the operator PC by the actual connection, not the Host header.
+
+    Windows may connect to its own LAN address instead of 127.0.0.1.
+    In that case the peer and the accepted socket's local IP are identical.
+    Remote LAN clients must still supply the QR token.
+    """
     try:
-        return ipaddress.ip_address(request.client.host).is_loopback
-    except (ValueError, AttributeError):
+        peer = _socket_ip(request.client.host)
+        if peer.is_loopback:
+            return True
+        server = request.scope.get("server")
+        if not server:
+            return False
+        local = _socket_ip(server[0])
+        return not local.is_unspecified and peer == local
+    except (ValueError, AttributeError, TypeError, IndexError):
         return False
 
 
@@ -91,23 +109,23 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
 
     @app.get("/", include_in_schema=False)
     def home() -> FileResponse:
-        return FileResponse(PAGE, media_type="text/html")
+        return FileResponse(PAGE, media_type="text/html", headers={"Cache-Control": "no-store"})
 
     @app.get("/games", include_in_schema=False)
     def games_page() -> FileResponse:
-        return FileResponse(GAME_PAGE, media_type="text/html")
+        return FileResponse(GAME_PAGE, media_type="text/html", headers={"Cache-Control": "no-store"})
 
     @app.get("/recognition", include_in_schema=False)
     def recognition_page() -> FileResponse:
-        return FileResponse(RECOGNITION_PAGE, media_type="text/html")
+        return FileResponse(RECOGNITION_PAGE, media_type="text/html", headers={"Cache-Control": "no-store"})
 
     @app.get("/tracking", include_in_schema=False)
     def tracking_page() -> FileResponse:
-        return FileResponse(TRACKING_PAGE, media_type="text/html")
+        return FileResponse(TRACKING_PAGE, media_type="text/html", headers={"Cache-Control": "no-store"})
 
     @app.get("/virtual-projector", include_in_schema=False)
     def virtual() -> FileResponse:
-        return FileResponse(VIRTUAL_PAGE, media_type="text/html")
+        return FileResponse(VIRTUAL_PAGE, media_type="text/html", headers={"Cache-Control": "no-store"})
 
     @app.get("/assets/createch-director-original.png", include_in_schema=False)
     def createch_portrait_original() -> FileResponse:
@@ -143,7 +161,8 @@ def create_app(lan_url: str | None = None, controller: Controller | None = None,
         return {"ok":True,"mode":"calibration","lan_url":lan_url,"paired_required":True}
 
     @app.get("/api/session")
-    def session(request:Request):
+    def session(request:Request, response: Response):
+        response.headers["Cache-Control"] = "no-store"
         provided=request.headers.get("x-control-token") or request.query_params.get("token")
         success=bool(provided and secrets.compare_digest(provided,key))
         if _loopback(request):
